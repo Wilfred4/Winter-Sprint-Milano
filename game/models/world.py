@@ -49,12 +49,33 @@ class World:
     def spawn_obstacle(self):
         lane = random.randint(0, settings.LANES - 1)
         y = -random.randint(40, 200)
+        if not self._is_obstacle_spawn_clear(lane, y):
+            return
         self.obstacles.append(Obstacle(lane=lane, y=y))
+
+    def _is_obstacle_spawn_clear(self, lane, y):
+        # prevent side-by-side "walls" that block the player
+        min_gap = settings.OBSTACLE_SIZE[1] + 50
+        for obstacle in self.obstacles:
+            if abs(obstacle.y - y) < min_gap:
+                return False
+        return True
 
     def spawn_medal(self):
         lane = random.randint(0, settings.LANES - 1)
         y = -random.randint(60, 240)
+        if not self._is_medal_lane_clear(lane, y):
+            return
         kinds = list(settings.MEDAL_WEIGHTS.keys())
         weights = list(settings.MEDAL_WEIGHTS.values())
         kind = random.choices(kinds, weights=weights, k=1)[0]
         self.medals.append(Medal(kind=kind, lane=lane, y=y))
+
+    def _is_medal_lane_clear(self, lane, y):
+        min_gap = settings.OBSTACLE_SIZE[1] + settings.MEDAL_SIZE[1] + 40
+        for obstacle in self.obstacles:
+            if obstacle.lane != lane:
+                continue
+            if abs(obstacle.y - y) < min_gap:
+                return False
+        return True
