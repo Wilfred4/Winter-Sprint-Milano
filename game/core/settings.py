@@ -9,16 +9,21 @@ LANE_PADDING = 90
 PLAYER_Y = HEIGHT - 90
 PLAYER_SIZE = (72, 96)
 PLAYER_RENDER_HEIGHT = 200
-OBSTACLE_SIZE = (60, 60)
+OBSTACLE_SIZE = (70, 90)
+MEDAL_SIZE = (48, 48)
 
 GRAVITY = 1.2
 JUMP_VELOCITY = -18
+HORIZONTAL_SPEED = 900  # px/sec for lane changes
+TILT_FACTOR = 0.08      # deg per px/sec
 
 BASE_SCROLL_SPEED = 4
 SPEED_GROWTH = 0.0004
 
 SPAWN_INTERVAL = 850  # ms
 SPAWN_JITTER = 250    # ms
+MEDAL_SPAWN_INTERVAL = 1200  # ms
+MEDAL_SPAWN_JITTER = 400     # ms
 
 BG_COLOR = (16, 22, 33)
 ROAD_COLOR = (28, 36, 54)
@@ -29,4 +34,19 @@ UI_COLOR = (220, 230, 240)
 
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 PLAYER_IMG = ASSETS_DIR / "player.png"
-OBSTACLE_IMG = ASSETS_DIR / "obstacle.png"
+OBSTACLE_IMG = ASSETS_DIR / "sapin.png"
+BACKGROUND_IMG = ASSETS_DIR / "fondrun.jpg"
+MEDAL_BRONZE_IMG = ASSETS_DIR / "bronze.png"
+MEDAL_SILVER_IMG = ASSETS_DIR / "argent.png"
+MEDAL_GOLD_IMG = ASSETS_DIR / "or_1.png"
+
+MEDAL_POINTS = {
+    "bronze": 1,
+    "silver": 3,
+    "gold": 5,
+}
+MEDAL_WEIGHTS = {
+    "bronze": 70,
+    "silver": 25,
+    "gold": 5,
+}

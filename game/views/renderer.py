@@ -10,6 +10,13 @@ class Renderer:
         self.font_small = pygame.font.SysFont("consolas", 20)
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
+        self.background_image = self._load_background()
+        self._player_rot_cache = {}
+        self.medal_images = {
+            "bronze": self._load_image(settings.MEDAL_BRONZE_IMG, settings.MEDAL_SIZE),
+            "silver": self._load_image(settings.MEDAL_SILVER_IMG, settings.MEDAL_SIZE),
+            "gold": self._load_image(settings.MEDAL_GOLD_IMG, settings.MEDAL_SIZE),
+        }
 
     def _load_player_image(self):
         if settings.PLAYER_IMG.exists():
@@ -26,25 +33,29 @@ class Renderer:
             return pygame.transform.smoothscale(image, size)
         return None
 
+    def _load_background(self):
+        if settings.BACKGROUND_IMG.exists():
+            image = pygame.image.load(settings.BACKGROUND_IMG).convert()
+            return pygame.transform.smoothscale(image, (settings.WIDTH, settings.HEIGHT))
+        return None
+
     def draw_background(self, screen):
-        screen.fill(settings.BG_COLOR)
-        pygame.draw.rect(
-            screen,
-            settings.ROAD_COLOR,
-            (settings.LANE_PADDING - 20, 0, settings.WIDTH - 2 * settings.LANE_PADDING + 40, settings.HEIGHT),
-        )
-        lane_width = (settings.WIDTH - 2 * settings.LANE_PADDING) // settings.LANES
-        for i in range(1, settings.LANES):
-            x = settings.LANE_PADDING + i * lane_width
-            pygame.draw.line(screen, settings.LANE_LINE, (x, 0), (x, settings.HEIGHT), 2)
+        if self.background_image:
+            screen.blit(self.background_image, (0, 0))
+        else:
+            screen.fill(settings.BG_COLOR)
 
     def draw_player(self, screen, player):
         x, y, w, h = player.rect
         if self.player_image:
             px = x + w // 2 - self.player_image.get_width() // 2
             py = y + h - self.player_image.get_height()
-            if abs(player.tilt) > 0.5:
-                rotated = pygame.transform.rotate(self.player_image, player.tilt)
+            angle = int(round(player.tilt))
+            if abs(angle) > 0:
+                rotated = self._player_rot_cache.get(angle)
+                if rotated is None:
+                    rotated = pygame.transform.rotate(self.player_image, angle)
+                    self._player_rot_cache[angle] = rotated
                 rect = rotated.get_rect(center=(px + self.player_image.get_width() // 2, py + self.player_image.get_height() // 2))
                 screen.blit(rotated, rect.topleft)
             else:
@@ -61,11 +72,22 @@ class Renderer:
             else:
                 pygame.draw.rect(screen, settings.OBSTACLE_COLOR, (x, y, w, h), border_radius=8)
 
-    def draw_ui(self, screen, score, speed):
+    def draw_medals(self, screen, medals):
+        for medal in medals:
+            x, y, w, h = medal.rect
+            image = self.medal_images.get(medal.kind)
+            if image:
+                screen.blit(image, (x, y))
+            else:
+                pygame.draw.circle(screen, (240, 210, 80), (x + w // 2, y + h // 2), w // 2)
+
+    def draw_ui(self, screen, score, medal_score, speed):
         score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
+        medal_text = self.font_small.render(f"Medals: {medal_score}", True, settings.UI_COLOR)
         speed_text = self.font_small.render(f"Speed: {speed:.1f}", True, settings.UI_COLOR)
         screen.blit(score_text, (16, 12))
-        screen.blit(speed_text, (16, 36))
+        screen.blit(medal_text, (16, 36))
+        screen.blit(speed_text, (16, 60))
 
     def draw_title(self, screen, title, subtitle):
         t = self.font_big.render(title, True, settings.UI_COLOR)

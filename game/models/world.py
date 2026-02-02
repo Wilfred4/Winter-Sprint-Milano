@@ -1,17 +1,21 @@
 ﻿import random
 
 from game.core import settings
-from game.models.entities import Obstacle
+from game.models.entities import Medal, Obstacle
 
 
 class World:
     def __init__(self):
         self.obstacles = []
+        self.medals = []
         self.score = 0
+        self.medal_score = 0
         self.distance = 0.0
         self.speed = settings.BASE_SCROLL_SPEED
         self.time_since_spawn = 0.0
         self.next_spawn = settings.SPAWN_INTERVAL
+        self.time_since_medal = 0.0
+        self.next_medal = settings.MEDAL_SPAWN_INTERVAL
 
     def reset(self):
         self.__init__()
@@ -27,12 +31,30 @@ class World:
             jitter = random.randint(-settings.SPAWN_JITTER, settings.SPAWN_JITTER)
             self.next_spawn = max(220, settings.SPAWN_INTERVAL + jitter)
 
+        self.time_since_medal += dt_ms
+        if self.time_since_medal >= self.next_medal:
+            self.spawn_medal()
+            self.time_since_medal = 0.0
+            jitter = random.randint(-settings.MEDAL_SPAWN_JITTER, settings.MEDAL_SPAWN_JITTER)
+            self.next_medal = max(400, settings.MEDAL_SPAWN_INTERVAL + jitter)
+
         for obstacle in self.obstacles:
             obstacle.update(self.speed)
+        for medal in self.medals:
+            medal.update(self.speed)
 
         self.obstacles = [o for o in self.obstacles if o.y - o.height < settings.HEIGHT + 40]
+        self.medals = [m for m in self.medals if m.y - m.height < settings.HEIGHT + 40]
 
     def spawn_obstacle(self):
         lane = random.randint(0, settings.LANES - 1)
         y = -random.randint(40, 200)
         self.obstacles.append(Obstacle(lane=lane, y=y))
+
+    def spawn_medal(self):
+        lane = random.randint(0, settings.LANES - 1)
+        y = -random.randint(60, 240)
+        kinds = list(settings.MEDAL_WEIGHTS.keys())
+        weights = list(settings.MEDAL_WEIGHTS.values())
+        kind = random.choices(kinds, weights=weights, k=1)[0]
+        self.medals.append(Medal(kind=kind, lane=lane, y=y))
