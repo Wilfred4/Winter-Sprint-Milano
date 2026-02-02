@@ -8,8 +8,17 @@ class Renderer:
     def __init__(self):
         self.font_big = pygame.font.SysFont("consolas", 36)
         self.font_small = pygame.font.SysFont("consolas", 20)
-        self.player_image = self._load_image(settings.PLAYER_IMG, settings.PLAYER_SIZE)
+        self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
+
+    def _load_player_image(self):
+        if settings.PLAYER_IMG.exists():
+            image = pygame.image.load(settings.PLAYER_IMG).convert_alpha()
+            h = settings.PLAYER_RENDER_HEIGHT
+            scale = h / image.get_height()
+            w = int(image.get_width() * scale)
+            return pygame.transform.smoothscale(image, (w, h))
+        return None
 
     def _load_image(self, path, size):
         if path.exists():
@@ -32,7 +41,14 @@ class Renderer:
     def draw_player(self, screen, player):
         x, y, w, h = player.rect
         if self.player_image:
-            screen.blit(self.player_image, (x, y))
+            px = x + w // 2 - self.player_image.get_width() // 2
+            py = y + h - self.player_image.get_height()
+            if abs(player.tilt) > 0.5:
+                rotated = pygame.transform.rotate(self.player_image, player.tilt)
+                rect = rotated.get_rect(center=(px + self.player_image.get_width() // 2, py + self.player_image.get_height() // 2))
+                screen.blit(rotated, rect.topleft)
+            else:
+                screen.blit(self.player_image, (px, py))
             return
         pygame.draw.rect(screen, settings.PLAYER_COLOR, (x, y, w, h), border_radius=10)
         pygame.draw.rect(screen, (180, 180, 190), (x + 10, y + 16, w - 20, h - 32), border_radius=6)
