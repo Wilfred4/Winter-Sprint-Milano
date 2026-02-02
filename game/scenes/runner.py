@@ -1,5 +1,7 @@
 ﻿import pygame
 
+from game.core import settings
+
 from game.controllers.input import InputController
 from game.models.entities import Player
 from game.models.world import World
@@ -54,6 +56,8 @@ class PlayScene(Scene):
                 obstacle.passed = True
                 self.world.score += 1
 
+        self.handle_medal_pickups()
+
         if self.check_collisions():
             self.game.change_scene(GameOverScene(self.game, self.world.score))
 
@@ -65,11 +69,25 @@ class PlayScene(Scene):
                 return True
         return False
 
+    def handle_medal_pickups(self):
+        px, py, pw, ph = self.player.rect
+        remaining = []
+        for medal in self.world.medals:
+            mx, my, mw, mh = medal.rect
+            if px < mx + mw and px + pw > mx and py < my + mh and py + ph > my:
+                points = settings.MEDAL_POINTS.get(medal.kind, 1)
+                self.world.score += points
+                self.world.medal_score += points
+            else:
+                remaining.append(medal)
+        self.world.medals = remaining
+
     def render(self, screen):
         self.renderer.draw_background(screen)
         self.renderer.draw_obstacles(screen, self.world.obstacles)
+        self.renderer.draw_medals(screen, self.world.medals)
         self.renderer.draw_player(screen, self.player)
-        self.renderer.draw_ui(screen, self.world.score, self.world.speed)
+        self.renderer.draw_ui(screen, self.world.score, self.world.medal_score, self.world.speed)
         self.renderer.draw_lane_marker(screen, self.player.lane)
 
 
