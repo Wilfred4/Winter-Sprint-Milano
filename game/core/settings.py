@@ -1,12 +1,14 @@
-﻿WIDTH = 800
-HEIGHT = 600
+﻿from pathlib import Path
+
+WIDTH = 960
+HEIGHT = 540
 FPS = 60
 
 LANES = 3
 LANE_PADDING = 90
-PLAYER_Y = HEIGHT - 120
-PLAYER_SIZE = (60, 80)
-OBSTACLE_SIZE = (60, 60)
+PLAYER_Y = HEIGHT - 90
+PLAYER_SIZE = (42, 56)
+OBSTACLE_SIZE = (48, 48)
 
 GRAVITY = 1.2
 JUMP_VELOCITY = -18
@@ -23,3 +25,7 @@ LANE_LINE = (60, 74, 100)
 PLAYER_COLOR = (240, 240, 250)
 OBSTACLE_COLOR = (255, 140, 60)
 UI_COLOR = (220, 230, 240)
+
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+PLAYER_IMG = ASSETS_DIR / "player.png"
+OBSTACLE_IMG = ASSETS_DIR / "obstacle.png"
