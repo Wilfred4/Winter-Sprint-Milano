@@ -55,9 +55,12 @@ class World:
 
     def _is_obstacle_spawn_clear(self, lane, y):
         # prevent side-by-side "walls" that block the player
-        min_gap = settings.OBSTACLE_SIZE[1] + 50
+        min_gap = settings.OBSTACLE_MIN_GAP
         for obstacle in self.obstacles:
-            if abs(obstacle.y - y) < min_gap:
+            if abs(obstacle.y - y) < min_gap and abs(obstacle.lane - lane) <= 1:
+                return False
+        for medal in self.medals:
+            if abs(medal.y - y) < settings.MEDAL_MIN_GAP and abs(medal.lane - lane) <= 1:
                 return False
         return True
 
@@ -72,10 +75,11 @@ class World:
         self.medals.append(Medal(kind=kind, lane=lane, y=y))
 
     def _is_medal_lane_clear(self, lane, y):
-        min_gap = settings.OBSTACLE_SIZE[1] + settings.MEDAL_SIZE[1] + 40
+        min_gap = settings.MEDAL_MIN_GAP
         for obstacle in self.obstacles:
-            if obstacle.lane != lane:
-                continue
-            if abs(obstacle.y - y) < min_gap:
+            if abs(obstacle.y - y) < min_gap and abs(obstacle.lane - lane) <= 1:
+                return False
+        for medal in self.medals:
+            if abs(medal.y - y) < min_gap and abs(medal.lane - lane) <= 1:
                 return False
         return True
