@@ -8,6 +8,14 @@ class Renderer:
     def __init__(self):
         self.font_big = pygame.font.SysFont("consolas", 36)
         self.font_small = pygame.font.SysFont("consolas", 20)
+        self.player_image = self._load_image(settings.PLAYER_IMG, settings.PLAYER_SIZE)
+        self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
+
+    def _load_image(self, path, size):
+        if path.exists():
+            image = pygame.image.load(path).convert_alpha()
+            return pygame.transform.smoothscale(image, size)
+        return None
 
     def draw_background(self, screen):
         screen.fill(settings.BG_COLOR)
@@ -23,13 +31,19 @@ class Renderer:
 
     def draw_player(self, screen, player):
         x, y, w, h = player.rect
+        if self.player_image:
+            screen.blit(self.player_image, (x, y))
+            return
         pygame.draw.rect(screen, settings.PLAYER_COLOR, (x, y, w, h), border_radius=10)
         pygame.draw.rect(screen, (180, 180, 190), (x + 10, y + 16, w - 20, h - 32), border_radius=6)
 
     def draw_obstacles(self, screen, obstacles):
         for obstacle in obstacles:
             x, y, w, h = obstacle.rect
-            pygame.draw.rect(screen, settings.OBSTACLE_COLOR, (x, y, w, h), border_radius=8)
+            if self.obstacle_image:
+                screen.blit(self.obstacle_image, (x, y))
+            else:
+                pygame.draw.rect(screen, settings.OBSTACLE_COLOR, (x, y, w, h), border_radius=8)
 
     def draw_ui(self, screen, score, speed):
         score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
