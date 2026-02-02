@@ -83,7 +83,7 @@ class PlayScene(Scene):
         self.world.medals = remaining
 
     def render(self, screen):
-        self.renderer.draw_background(screen)
+        self.renderer.draw_background(screen, self.world.speed)
         self.renderer.draw_obstacles(screen, self.world.obstacles)
         self.renderer.draw_medals(screen, self.world.medals)
         self.renderer.draw_player(screen, self.player)
@@ -108,4 +108,7 @@ class GameOverScene(Scene):
 
     def render(self, screen):
         self.renderer.draw_background(screen)
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        screen.blit(overlay, (0, 0))
         self.renderer.draw_title(screen, "Game Over", f"Score: {self.score} | Enter pour rejouer")

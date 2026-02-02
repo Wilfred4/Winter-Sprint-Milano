@@ -11,6 +11,8 @@ class Renderer:
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
         self.background_image = self._load_background()
+        self._bg_offset = 0.0
+        self._bg_height = self.background_image.get_height() if self.background_image else 0
         self._player_rot_cache = {}
         self.medal_images = {
             "bronze": self._load_image(settings.MEDAL_BRONZE_IMG, settings.MEDAL_SIZE),
@@ -36,12 +38,18 @@ class Renderer:
     def _load_background(self):
         if settings.BACKGROUND_IMG.exists():
             image = pygame.image.load(settings.BACKGROUND_IMG).convert()
-            return pygame.transform.smoothscale(image, (settings.WIDTH, settings.HEIGHT))
+            scale = settings.WIDTH / image.get_width()
+            height = max(1, int(image.get_height() * scale))
+            return pygame.transform.smoothscale(image, (settings.WIDTH, height))
         return None
 
-    def draw_background(self, screen):
+    def draw_background(self, screen, scroll_speed=0.0):
         if self.background_image:
-            screen.blit(self.background_image, (0, 0))
+            self._bg_offset = (self._bg_offset - scroll_speed) % self._bg_height
+            y = -self._bg_offset
+            screen.blit(self.background_image, (0, y))
+            if y + self._bg_height < settings.HEIGHT:
+                screen.blit(self.background_image, (0, y + self._bg_height))
         else:
             screen.fill(settings.BG_COLOR)
 
@@ -85,6 +93,10 @@ class Renderer:
         score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
         medal_text = self.font_small.render(f"Medals: {medal_score}", True, settings.UI_COLOR)
         speed_text = self.font_small.render(f"Speed: {speed:.1f}", True, settings.UI_COLOR)
+        shadow = settings.UI_SHADOW
+        screen.blit(self.font_small.render(f"Score: {score}", True, shadow), (17, 13))
+        screen.blit(self.font_small.render(f"Medals: {medal_score}", True, shadow), (17, 37))
+        screen.blit(self.font_small.render(f"Speed: {speed:.1f}", True, shadow), (17, 61))
         screen.blit(score_text, (16, 12))
         screen.blit(medal_text, (16, 36))
         screen.blit(speed_text, (16, 60))
