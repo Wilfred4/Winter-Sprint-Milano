@@ -66,7 +66,7 @@ class PlayScene(Scene):
         return False
 
     def render(self, screen):
-        self.renderer.draw_background(screen)
+        self.renderer.draw_background(screen, self.world.speed)
         self.renderer.draw_obstacles(screen, self.world.obstacles)
         self.renderer.draw_player(screen, self.player)
         self.renderer.draw_ui(screen, self.world.score, self.world.speed)

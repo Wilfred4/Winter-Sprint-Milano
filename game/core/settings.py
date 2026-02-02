@@ -27,6 +27,6 @@ PLAYER_COLOR = (240, 240, 250)
 OBSTACLE_COLOR = (255, 140, 60)
 UI_COLOR = (220, 230, 240)
 
-ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets" / "images"
 PLAYER_IMG = ASSETS_DIR / "player.png"
-OBSTACLE_IMG = ASSETS_DIR / "obstacle.png"
+OBSTACLE_IMG = ASSETS_DIR / "tree.png"

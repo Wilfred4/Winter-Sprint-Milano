@@ -6,10 +6,21 @@ from game.models.entities import lane_x
 
 class Renderer:
     def __init__(self):
+        # Initialisation explicite du module font pour Python 3.14
+        pygame.font.init()
+        
         self.font_big = pygame.font.SysFont("consolas", 36)
         self.font_small = pygame.font.SysFont("consolas", 20)
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
+        
+        # Chargement et redimensionnement du background pour scrolling
+        bg_original = pygame.image.load("assets/images/background.jpg").convert()
+        scale = settings.WIDTH / bg_original.get_width()
+        new_height = int(bg_original.get_height() * scale)
+        self.bg_image = pygame.transform.smoothscale(bg_original, (settings.WIDTH, new_height))
+        self.bg_height = self.bg_image.get_height()
+        self.scroll_y = 0
 
     def _load_player_image(self):
         if settings.PLAYER_IMG.exists():
@@ -26,17 +37,14 @@ class Renderer:
             return pygame.transform.smoothscale(image, size)
         return None
 
-    def draw_background(self, screen):
-        screen.fill(settings.BG_COLOR)
-        pygame.draw.rect(
-            screen,
-            settings.ROAD_COLOR,
-            (settings.LANE_PADDING - 20, 0, settings.WIDTH - 2 * settings.LANE_PADDING + 40, settings.HEIGHT),
-        )
-        lane_width = (settings.WIDTH - 2 * settings.LANE_PADDING) // settings.LANES
-        for i in range(1, settings.LANES):
-            x = settings.LANE_PADDING + i * lane_width
-            pygame.draw.line(screen, settings.LANE_LINE, (x, 0), (x, settings.HEIGHT), 2)
+    def draw_background(self, screen, speed=0):
+        # Scrolling vertical infini
+        self.scroll_y += speed
+        if self.scroll_y >= self.bg_height:
+            self.scroll_y = 0
+        
+        screen.blit(self.bg_image, (0, self.scroll_y))
+        screen.blit(self.bg_image, (0, self.scroll_y - self.bg_height))
 
     def draw_player(self, screen, player):
         x, y, w, h = player.rect
