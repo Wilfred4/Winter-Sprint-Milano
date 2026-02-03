@@ -1,13 +1,16 @@
-﻿import pygame
+import pygame
+import math
 
 from game.core import settings
-from game.models.entities import lane_x
+from game.models.entities import lane_x, TargetState
 
 
 class Renderer:
     def __init__(self):
         self.font_big = pygame.font.SysFont("consolas", 36)
+        self.font_medium = pygame.font.SysFont("consolas", 28)
         self.font_small = pygame.font.SysFont("consolas", 20)
+        self.font_tiny = pygame.font.SysFont("consolas", 16)
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
         self.background_image = self._load_background()
@@ -22,6 +25,34 @@ class Renderer:
             "silver": self._load_image(settings.MEDAL_SILVER_IMG, settings.MEDAL_SIZE),
             "gold": self._load_image(settings.MEDAL_GOLD_IMG, settings.MEDAL_SIZE),
         }
+
+        # Images phase tir
+        self.shooting_bg_image = self._load_fullscreen_image(settings.SHOOTING_BG_IMG)
+        self.target_image = self._load_image(settings.TARGET_IMG, settings.TARGET_SIZE)
+        self.target_hit_image = None  # On teintera l'image
+        self.target_miss_image = None
+        self.sight_image = self._load_image(settings.SIGHT_IMG, settings.SIGHT_SIZE)
+
+        # Images compteur
+        self.countdown_images = {
+            3: self._load_countdown_image(settings.COUNTDOWN_3_IMG),
+            2: self._load_countdown_image(settings.COUNTDOWN_2_IMG),
+            1: self._load_countdown_image(settings.COUNTDOWN_1_IMG),
+            "start": self._load_countdown_image(settings.COUNTDOWN_START_IMG),
+        }
+
+    def _load_fullscreen_image(self, path):
+        if path.exists():
+            image = pygame.image.load(path).convert()
+            return pygame.transform.smoothscale(image, (settings.WIDTH, settings.HEIGHT))
+        return None
+
+    def _load_countdown_image(self, path):
+        if path.exists():
+            image = pygame.image.load(path).convert_alpha()
+            # Redimensionner à une taille raisonnable (200x200)
+            return pygame.transform.smoothscale(image, (600, 400))
+        return None
 
     def _load_player_image(self):
         if settings.PLAYER_IMG.exists():
@@ -160,3 +191,278 @@ class Renderer:
     def draw_lane_marker(self, screen, lane_index):
         x = lane_x(lane_index)
         pygame.draw.circle(screen, (90, 110, 140), (x, settings.HEIGHT - 20), 6)
+
+    # === PHASE TIR ===
+
+    def draw_shooting_background(self, screen):
+        """Fond pour la phase de tir"""
+        if self.shooting_bg_image:
+            screen.blit(self.shooting_bg_image, (0, 0))
+        else:
+            screen.fill(settings.SHOOTING_BG_COLOR)
+            pygame.draw.rect(screen, (240, 245, 255), (0, 450, settings.WIDTH, settings.HEIGHT - 450))
+            pygame.draw.line(screen, (150, 170, 190), (0, 450), (settings.WIDTH, 450), 3)
+
+    def draw_targets(self, screen, targets):
+        """Dessine les cibles avec les images"""
+        for target in targets:
+            x, y, w, h = target.rect
+
+            if self.target_image:
+                # Utiliser l'image
+                if target.state == TargetState.NORMAL:
+                    screen.blit(self.target_image, (x, y))
+                elif target.state == TargetState.HIT:
+                    # Teinter en vert
+                    tinted = self.target_image.copy()
+                    tinted.fill((100, 255, 100, 0), special_flags=pygame.BLEND_RGBA_ADD)
+                    screen.blit(tinted, (x, y))
+                else:  # MISSED
+                    # Teinter en rouge
+                    tinted = self.target_image.copy()
+                    tinted.fill((255, 100, 100, 0), special_flags=pygame.BLEND_RGBA_ADD)
+                    screen.blit(tinted, (x, y))
+            else:
+                # Fallback : dessiner des cercles
+                cx, cy = x + w // 2, y + h // 2
+                if target.state == TargetState.NORMAL:
+                    color = settings.TARGET_COLOR
+                elif target.state == TargetState.HIT:
+                    color = settings.TARGET_HIT_COLOR
+                else:
+                    color = settings.TARGET_MISS_COLOR
+                pygame.draw.circle(screen, color, (cx, cy), w // 2)
+                pygame.draw.circle(screen, (255, 255, 255), (cx, cy), int(w * 0.35))
+                pygame.draw.circle(screen, color, (cx, cy), int(w * 0.15))
+
+    def draw_sight(self, screen, sight):
+        """Dessine le viseur avec l'image"""
+        x = int(sight.x)
+        y = int(sight.y)
+
+        if self.sight_image:
+            screen.blit(self.sight_image, (x, y))
+        else:
+            # Fallback : dessiner le viseur manuellement
+            size = sight.width
+            cx = x + size // 2
+            cy = y + size // 2
+            pygame.draw.line(screen, settings.SIGHT_COLOR, (x, cy), (x + size, cy), 3)
+            pygame.draw.line(screen, settings.SIGHT_COLOR, (cx, y), (cx, y + size), 3)
+            pygame.draw.circle(screen, settings.SIGHT_COLOR, (cx, cy), size // 2, 3)
+            pygame.draw.circle(screen, settings.SIGHT_COLOR, (cx, cy), 4)
+
+    def draw_countdown(self, screen, step):
+        """Dessine l'image du compte à rebours (3, 2, 1, start)"""
+        image = self.countdown_images.get(step)
+        if image:
+            x = settings.WIDTH // 2 - image.get_width() // 2
+            y = settings.HEIGHT // 2 - image.get_height() // 2
+            screen.blit(image, (x, y))
+        else:
+            # Fallback : texte
+            text = "START" if step == "start" else str(step)
+            font = pygame.font.SysFont("consolas", 120, bold=True)
+            rendered = font.render(text, True, (255, 80, 80))
+            screen.blit(rendered, (settings.WIDTH // 2 - rendered.get_width() // 2,
+                                   settings.HEIGHT // 2 - rendered.get_height() // 2))
+
+    def draw_shooting_ui(self, screen, shots_remaining, targets_hit, score, lives):
+        """UI pour la phase de tir"""
+        # Tirs restants
+        shots_text = self.font_big.render(f"Tirs: {shots_remaining}", True, settings.UI_COLOR)
+        screen.blit(shots_text, (settings.WIDTH // 2 - shots_text.get_width() // 2, 20))
+
+        # Cibles touchées
+        hit_text = self.font_small.render(f"Touchées: {targets_hit}/{settings.NUM_TARGETS}", True, settings.UI_COLOR)
+        screen.blit(hit_text, (settings.WIDTH // 2 - hit_text.get_width() // 2, 70))
+
+        # Score (gauche)
+        score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
+        screen.blit(score_text, (16, 12))
+
+        # Vies (droite)
+        self.draw_lives(screen, lives)
+
+        # Instruction
+        instruction = self.font_small.render("ESPACE pour tirer", True, settings.UI_COLOR)
+        screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 50))
+
+    def draw_lives(self, screen, lives):
+        """Affiche les vies (cœurs)"""
+        heart_size = 28
+        max_display = 5  # Afficher max 5 cœurs
+        start_x = settings.WIDTH - 20 - (heart_size + 8) * min(max_display, max(0, lives + 1))
+
+        # Afficher les cœurs pleins pour les vies
+        for i in range(max(0, lives + 1)):  # +1 car on commence à 0
+            if i >= max_display:
+                break
+            x = start_x + i * (heart_size + 8)
+            self._draw_heart(screen, x, 15, heart_size, (220, 60, 60))
+
+        # Si aucune vie, afficher un cœur vide
+        if lives < 0:
+            self._draw_heart(screen, settings.WIDTH - 20 - heart_size, 15, heart_size, (150, 150, 160), filled=False)
+
+    def _draw_heart(self, screen, x, y, size, color, filled=True):
+        """Dessine un cœur"""
+        points = [
+            (x + size // 2, y + size),
+            (x, y + size // 3),
+            (x + size // 4, y),
+            (x + size // 2, y + size // 4),
+            (x + 3 * size // 4, y),
+            (x + size, y + size // 3),
+        ]
+        if filled:
+            pygame.draw.polygon(screen, color, points)
+        pygame.draw.polygon(screen, (100, 50, 50), points, 2)
+
+    def draw_ski_ui(self, screen, score, medal_score, lives, time_to_shooting):
+        """UI pour la phase ski avec vies et compte à rebours circulaire"""
+        # Score et médailles (gauche)
+        shadow = settings.UI_SHADOW
+        score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
+        medal_text = self.font_small.render(f"Médailles: {medal_score}", True, settings.UI_COLOR)
+
+        screen.blit(self.font_small.render(f"Score: {score}", True, shadow), (17, 13))
+        screen.blit(self.font_small.render(f"Médailles: {medal_score}", True, shadow), (17, 37))
+        screen.blit(score_text, (16, 12))
+        screen.blit(medal_text, (16, 36))
+
+        # Compte à rebours circulaire (centre)
+        self.draw_circular_timer(screen, time_to_shooting, settings.SHOOTING_INTERVAL)
+
+        # Vies (droite)
+        self.draw_lives(screen, lives)
+
+    def draw_circular_timer(self, screen, time_remaining, total_time):
+        """Dessine un compte à rebours circulaire"""
+        cx, cy = settings.WIDTH // 2, 45
+        radius = 32
+        thickness = 6
+
+        # Fond du cercle (gris)
+        pygame.draw.circle(screen, (80, 80, 90), (cx, cy), radius, thickness)
+
+        # Arc de progression
+        progress = max(0, time_remaining / total_time)
+        if progress > 0:
+            # Couleur selon le temps restant
+            if progress > 0.5:
+                color = (80, 180, 80)  # Vert
+            elif progress > 0.25:
+                color = (220, 180, 60)  # Orange
+            else:
+                color = (220, 80, 80)  # Rouge
+
+            # Dessiner l'arc
+            start_angle = math.pi / 2  # Commence en haut
+            end_angle = start_angle + (2 * math.pi * progress)
+            rect = pygame.Rect(cx - radius, cy - radius, radius * 2, radius * 2)
+            pygame.draw.arc(screen, color, rect, start_angle, end_angle, thickness)
+
+        # Texte au centre
+        seconds = max(0, int(time_remaining / 1000))
+        timer_text = self.font_small.render(f"{seconds}", True, settings.UI_COLOR)
+        screen.blit(timer_text, (cx - timer_text.get_width() // 2, cy - timer_text.get_height() // 2))
+
+    def draw_player_blinking(self, screen, player):
+        """Dessine le joueur avec effet clignotant si invincible"""
+        if player.is_invincible():
+            if int(pygame.time.get_ticks() / 100) % 2 == 0:
+                return  # Ne pas dessiner (effet clignotant)
+        self.draw_player(screen, player)
+
+    # === EFFETS VISUELS ===
+
+    def draw_flash(self, screen, color, alpha):
+        """Dessine un flash coloré sur l'écran"""
+        if alpha <= 0:
+            return
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((*color, min(255, int(alpha))))
+        screen.blit(overlay, (0, 0))
+
+    def draw_floating_text(self, screen, texts):
+        """Dessine des textes flottants animés
+        texts: liste de dicts {text, x, y, color, alpha, scale}
+        """
+        for t in texts:
+            if t['alpha'] <= 0:
+                continue
+            font_size = int(24 * t.get('scale', 1.0))
+            font = pygame.font.SysFont("consolas", font_size, bold=True)
+            text_surface = font.render(t['text'], True, t['color'])
+            text_surface.set_alpha(int(t['alpha']))
+            screen.blit(text_surface, (int(t['x']) - text_surface.get_width() // 2, int(t['y'])))
+
+    # === GAME OVER AMÉLIORÉ ===
+
+    def draw_game_over(self, screen, score, medal_score, distance, best_score, animation_progress):
+        """Écran Game Over amélioré avec animations"""
+        # Fond semi-transparent
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # Animation de zoom pour le titre
+        title_scale = min(1.0, animation_progress * 2)
+        title_y = settings.HEIGHT // 2 - 140
+
+        # Titre "GAME OVER"
+        title_size = int(48 * title_scale)
+        if title_size > 0:
+            title_font = pygame.font.SysFont("consolas", title_size, bold=True)
+            title = title_font.render("GAME OVER", True, (255, 80, 80))
+            # Ombre
+            shadow = title_font.render("GAME OVER", True, (80, 20, 20))
+            screen.blit(shadow, (settings.WIDTH // 2 - title.get_width() // 2 + 3, title_y + 3))
+            screen.blit(title, (settings.WIDTH // 2 - title.get_width() // 2, title_y))
+
+        # Statistiques (apparaissent progressivement)
+        if animation_progress > 0.3:
+            stats_alpha = min(255, int((animation_progress - 0.3) * 400))
+            self._draw_stat_box(screen, settings.WIDTH // 2, settings.HEIGHT // 2 - 40,
+                               "SCORE", str(score), (255, 255, 255), stats_alpha)
+
+        if animation_progress > 0.5:
+            stats_alpha = min(255, int((animation_progress - 0.5) * 400))
+            self._draw_stat_box(screen, settings.WIDTH // 2, settings.HEIGHT // 2 + 20,
+                               "MÉDAILLES", str(medal_score), (255, 215, 0), stats_alpha)
+
+        if animation_progress > 0.7:
+            stats_alpha = min(255, int((animation_progress - 0.7) * 400))
+            self._draw_stat_box(screen, settings.WIDTH // 2, settings.HEIGHT // 2 + 80,
+                               "DISTANCE", f"{int(distance)}m", (100, 200, 255), stats_alpha)
+
+        # Meilleur score
+        if animation_progress > 0.9 and best_score > 0:
+            best_alpha = min(255, int((animation_progress - 0.9) * 1000))
+            if score >= best_score:
+                best_text = self.font_medium.render("NOUVEAU RECORD !", True, (255, 215, 0))
+            else:
+                best_text = self.font_small.render(f"Meilleur: {best_score}", True, (180, 180, 180))
+            best_text.set_alpha(best_alpha)
+            screen.blit(best_text, (settings.WIDTH // 2 - best_text.get_width() // 2, settings.HEIGHT // 2 + 130))
+
+        # Instruction pour rejouer
+        if animation_progress >= 1.0:
+            # Effet de pulsation
+            pulse = 0.8 + 0.2 * math.sin(pygame.time.get_ticks() / 200)
+            instruction = self.font_small.render("Appuie sur ENTER pour rejouer", True, (200, 200, 200))
+            instruction.set_alpha(int(255 * pulse))
+            screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 80))
+
+    def _draw_stat_box(self, screen, cx, cy, label, value, color, alpha):
+        """Dessine une boîte de statistique"""
+        # Label
+        label_text = self.font_tiny.render(label, True, (150, 150, 150))
+        label_text.set_alpha(alpha)
+        screen.blit(label_text, (cx - label_text.get_width() // 2, cy - 12))
+
+        # Valeur
+        value_text = self.font_medium.render(value, True, color)
+        value_text.set_alpha(alpha)
+        screen.blit(value_text, (cx - value_text.get_width() // 2, cy + 5))
