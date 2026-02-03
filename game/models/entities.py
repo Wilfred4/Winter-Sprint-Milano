@@ -1,4 +1,5 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
+from enum import Enum
 
 from game.core import settings
 
@@ -6,6 +7,12 @@ from game.core import settings
 def lane_x(lane_index):
     lane_width = (settings.WIDTH - 2 * settings.LANE_PADDING) // settings.LANES
     return settings.LANE_PADDING + lane_width * lane_index + lane_width // 2
+
+
+class TargetState(Enum):
+    NORMAL = "normal"
+    HIT = "hit"
+    MISSED = "missed"
 
 
 @dataclass
@@ -20,6 +27,8 @@ class Player:
     x: float = 0.0
     tilt: float = 0.0
     velocity_x: float = 0.0
+    lives: int = 0  # Commence avec 0 vies
+    invincible_timer: float = 0.0  # Temps d'invincibilité après collision
 
     def __post_init__(self):
         self.x = float(lane_x(self.lane))
@@ -37,6 +46,11 @@ class Player:
 
     def update(self, dt):
         dt_sec = max(0.0, dt / 1000.0)
+
+        # Mise à jour timer invincibilité
+        if self.invincible_timer > 0:
+            self.invincible_timer -= dt
+
         # vertical movement
         if not self.on_ground:
             self.velocity_y += settings.GRAVITY
@@ -56,6 +70,21 @@ class Player:
 
         # tilt based on horizontal velocity
         self.tilt = max(-12.0, min(12.0, -self.velocity_x * settings.TILT_FACTOR))
+
+    def take_damage(self):
+        """Inflige des dégâts au joueur. Retourne True si le joueur est mort."""
+        if self.invincible_timer <= 0:
+            self.lives -= 1
+            self.invincible_timer = 1500  # 1.5 secondes d'invincibilité
+            return self.lives < 0
+        return False
+
+    def is_invincible(self):
+        return self.invincible_timer > 0
+
+    @property
+    def is_dead(self):
+        return self.lives < 0
 
     @property
     def rect(self):
@@ -98,3 +127,51 @@ class Medal:
         x = lane_x(self.lane) - self.width // 2
         y = int(self.y) - self.height
         return (x, y, self.width, self.height)
+
+
+@dataclass
+class Target:
+    """Cible pour la phase de tir"""
+    x: float
+    y: float = settings.TARGET_Y
+    width: int = settings.TARGET_SIZE[0]
+    height: int = settings.TARGET_SIZE[1]
+    state: TargetState = TargetState.NORMAL
+
+    @property
+    def center_x(self):
+        return self.x + self.width // 2
+
+    @property
+    def rect(self):
+        return (int(self.x), int(self.y), self.width, self.height)
+
+
+@dataclass
+class Sight:
+    """Viseur pour la phase de tir"""
+    x: float = settings.SIGHT_MIN_X
+    y: float = settings.SIGHT_Y
+    width: int = settings.SIGHT_SIZE[0]
+    height: int = settings.SIGHT_SIZE[1]
+    direction: int = 1  # 1 = droite, -1 = gauche
+
+    def update(self):
+        """Met à jour la position du viseur (aller-retour)"""
+        self.x += settings.SIGHT_SPEED * self.direction
+
+        # Rebondir aux bords
+        if self.x >= settings.SIGHT_MAX_X:
+            self.x = settings.SIGHT_MAX_X
+            self.direction = -1
+        elif self.x <= settings.SIGHT_MIN_X:
+            self.x = settings.SIGHT_MIN_X
+            self.direction = 1
+
+    @property
+    def center_x(self):
+        return self.x + self.width // 2
+
+    def is_on_target(self, target: Target) -> bool:
+        """Vérifie si le viseur est aligné avec une cible"""
+        return abs(self.center_x - target.center_x) <= settings.TARGET_TOLERANCE
