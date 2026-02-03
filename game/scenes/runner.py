@@ -104,7 +104,6 @@ class PlayScene(Scene):
         self.renderer.draw_medals(screen, self.world.medals)
         self.renderer.draw_player(screen, self.player)
         self.renderer.draw_ui(screen, self.world.score, self.world.medal_score, self.world.speed)
-        self.renderer.draw_lane_marker(screen, self.player.lane)
         if self.paused:
             overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 140))
