@@ -11,6 +11,9 @@ class Renderer:
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
         self.background_image = self._load_background()
+        self.menu_image = self._load_menu_background()
+        self.menu_button_image = self._load_menu_button()
+        self._menu_button_cache = {}
         self._bg_offset = 0.0
         self._bg_height = self.background_image.get_height() if self.background_image else 0
         self._player_rot_cache = {}
@@ -41,6 +44,17 @@ class Renderer:
             scale = settings.WIDTH / image.get_width()
             height = max(1, int(image.get_height() * scale))
             return pygame.transform.smoothscale(image, (settings.WIDTH, height))
+        return None
+
+    def _load_menu_background(self):
+        if settings.MENU_BG_IMG.exists():
+            image = pygame.image.load(settings.MENU_BG_IMG).convert()
+            return pygame.transform.smoothscale(image, (settings.WIDTH, settings.HEIGHT))
+        return None
+
+    def _load_menu_button(self):
+        if settings.MENU_BUTTON_IMG.exists():
+            return pygame.image.load(settings.MENU_BUTTON_IMG).convert_alpha()
         return None
 
     def draw_background(self, screen, scroll_speed=0.0):
@@ -100,6 +114,42 @@ class Renderer:
         screen.blit(score_text, (16, 12))
         screen.blit(medal_text, (16, 36))
         screen.blit(speed_text, (16, 60))
+
+    def draw_menu(self, screen, start_rect, start_hovered, quit_rect, quit_hovered):
+        if self.menu_image:
+            screen.blit(self.menu_image, (0, 0))
+        else:
+            screen.fill(settings.BG_COLOR)
+        # glass style buttons
+        self._draw_glass_button(screen, start_rect, start_hovered, "START")
+        self._draw_glass_button(screen, quit_rect, quit_hovered, "QUIT")
+
+    def _draw_glass_button(self, screen, rect, hovered, label):
+        if self.menu_button_image:
+            key = (rect.width, rect.height)
+            img = self._menu_button_cache.get(key)
+            if img is None:
+                img = pygame.transform.smoothscale(self.menu_button_image, (rect.width, rect.height))
+                self._menu_button_cache[key] = img
+            if hovered:
+                scale = 1.04
+                w = int(rect.width * scale)
+                h = int(rect.height * scale)
+                hover_key = ("hover", w, h)
+                hover_img = self._menu_button_cache.get(hover_key)
+                if hover_img is None:
+                    hover_img = pygame.transform.smoothscale(img, (w, h))
+                    self._menu_button_cache[hover_key] = hover_img
+                screen.blit(hover_img, (rect.centerx - w // 2, rect.centery - h // 2))
+            else:
+                screen.blit(img, rect.topleft)
+        else:
+            pygame.draw.rect(screen, (20, 20, 25), rect, border_radius=12)
+            pygame.draw.rect(screen, (240, 240, 240), rect, 2, border_radius=12)
+        text = self.font_big.render(label, True, (245, 255, 255))
+        shadow = self.font_big.render(label, True, (20, 40, 60))
+        screen.blit(shadow, (rect.centerx - text.get_width() // 2 + 2, rect.centery - text.get_height() // 2 + 2))
+        screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
 
     def draw_title(self, screen, title, subtitle):
         t = self.font_big.render(title, True, settings.UI_COLOR)

@@ -3,6 +3,7 @@
 WIDTH = 960
 HEIGHT = 720
 FPS = 60
+FULLSCREEN = False
 
 LANES = 3
 LANE_PADDING = 180
@@ -39,6 +40,8 @@ ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 PLAYER_IMG = ASSETS_DIR / "player.png"
 OBSTACLE_IMG = ASSETS_DIR / "sapin.png"
 BACKGROUND_IMG = ASSETS_DIR / "fondrun.jpg"
+MENU_BG_IMG = ASSETS_DIR / "accueil.png"
+MENU_BUTTON_IMG = ASSETS_DIR / "bouttonAccueil.png"
 MEDAL_BRONZE_IMG = ASSETS_DIR / "bronze.png"
 MEDAL_SILVER_IMG = ASSETS_DIR / "argent.png"
 MEDAL_GOLD_IMG = ASSETS_DIR / "or_1.png"
