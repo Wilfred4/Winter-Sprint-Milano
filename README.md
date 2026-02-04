@@ -20,6 +20,10 @@ python index.py
 - Enter: start / restart
 - Esc: quitter
 
+### Hockey 1v1
+- Flèches / ZQSD: bouger
+- M: retour menu
+
 ## Structure (MVC)
 - `game/models`: état et logique (player, obstacles, world)
 - `game/views`: rendu (drawing)
