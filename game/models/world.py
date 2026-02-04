@@ -22,7 +22,11 @@ class World:
 
     def update(self, dt_ms):
         self.distance += dt_ms * 0.001
-        self.speed = settings.BASE_SCROLL_SPEED + self.distance * settings.SPEED_GROWTH * 1000
+        # Vitesse progressive avec cap
+        self.speed = min(
+            settings.MAX_SCROLL_SPEED,
+            settings.BASE_SCROLL_SPEED + self.distance * settings.SPEED_GROWTH
+        )
 
         self.time_since_spawn += dt_ms
         if self.time_since_spawn >= self.next_spawn:

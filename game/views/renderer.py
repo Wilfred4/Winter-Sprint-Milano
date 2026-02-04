@@ -8,6 +8,9 @@ from game.models.entities import lane_x, TargetState
 
 
 class Renderer:
+    # Variable de classe pour partager l'index du fond entre instances
+    _current_bg_index = 0
+
     def __init__(self):
         # Polices adaptées pour 1920x1080
         self.font_big = pygame.font.SysFont("consolas", 56)
@@ -16,7 +19,12 @@ class Renderer:
         self.font_tiny = pygame.font.SysFont("consolas", 24)
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
-        self.background_image = self._load_background()
+
+        # === SYSTÈME DE MAPS ===
+        # Charger tous les fonds disponibles
+        self.background_images = self._load_all_backgrounds()
+        self.background_image = self.background_images[Renderer._current_bg_index] if self.background_images else None
+
         self.menu_image = self._load_menu_background()
         self.menu_button_image = self._load_menu_button()
         self._menu_button_cache = {}
@@ -32,7 +40,7 @@ class Renderer:
         # Images phase tir
         self.shooting_bg_image = self._load_fullscreen_image(settings.SHOOTING_BG_IMG)
         self.target_image = self._load_image(settings.TARGET_IMG, settings.TARGET_SIZE)
-        self.target_hit_image = None  # On teintera l'image
+        self.target_hit_image = None
         self.target_miss_image = None
         self.sight_image = self._load_image(settings.SIGHT_IMG, settings.SIGHT_SIZE)
 
@@ -43,6 +51,40 @@ class Renderer:
             1: self._load_countdown_image(settings.COUNTDOWN_1_IMG),
             "start": self._load_countdown_image(settings.COUNTDOWN_START_IMG),
         }
+
+    def _load_all_backgrounds(self):
+        """Charge tous les fonds de piste disponibles"""
+        backgrounds = []
+        for bg_path in settings.BACKGROUND_IMAGES:
+            if bg_path.exists():
+                image = pygame.image.load(bg_path).convert()
+                scale = settings.WIDTH / image.get_width()
+                height = max(1, int(image.get_height() * scale))
+                scaled = pygame.transform.smoothscale(image, (settings.WIDTH, height))
+                backgrounds.append(scaled)
+        return backgrounds
+
+    def next_background(self):
+        """Passe au fond suivant (appelé après chaque phase de tir)"""
+        if len(self.background_images) > 1:
+            Renderer._current_bg_index = (Renderer._current_bg_index + 1) % len(self.background_images)
+            self.background_image = self.background_images[Renderer._current_bg_index]
+            self._bg_height = self.background_image.get_height()
+            self._bg_offset = 0.0  # Reset du scroll
+        return Renderer._current_bg_index
+
+    def get_current_map_index(self):
+        """Retourne l'index de la map actuelle"""
+        return Renderer._current_bg_index
+
+    def get_total_maps(self):
+        """Retourne le nombre total de maps disponibles"""
+        return len(self.background_images)
+
+    @classmethod
+    def reset_background_index(cls):
+        """Remet l'index du fond à 0 (pour nouvelle partie)"""
+        cls._current_bg_index = 0
 
     def _load_fullscreen_image(self, path):
         if path.exists():

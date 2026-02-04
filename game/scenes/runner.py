@@ -23,6 +23,7 @@ class MenuScene(Scene):
         self.input.handle_event(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.start_button.collidepoint(event.pos):
+                Renderer.reset_background_index()
                 self.game.change_scene(CountdownScene(self.game, with_start=True))
             if self.quit_button.collidepoint(event.pos):
                 self.game.running = False
@@ -30,6 +31,7 @@ class MenuScene(Scene):
     def update(self, dt):
         left, right, jump, start = self.input.consume()
         if start or jump:
+            Renderer.reset_background_index()
             self.game.change_scene(CountdownScene(self.game, with_start=True))
 
     def render(self, screen):
@@ -117,10 +119,48 @@ class SkiScene(Scene):
         self.flash_alpha = 0
         self.floating_texts = []
 
+        # Menu pause
+        self.pause_selected = 0  # 0=Reprendre, 1=Menu, 2=Quitter
+        self.pause_buttons = [
+            pygame.Rect(0, 0, 350, 80),
+            pygame.Rect(0, 0, 350, 80),
+            pygame.Rect(0, 0, 350, 80),
+        ]
+        self.pause_buttons[0].center = (settings.WIDTH // 2, settings.HEIGHT // 2 - 100)
+        self.pause_buttons[1].center = (settings.WIDTH // 2, settings.HEIGHT // 2)
+        self.pause_buttons[2].center = (settings.WIDTH // 2, settings.HEIGHT // 2 + 100)
+
     def handle_event(self, event):
         self.input.handle_event(event)
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.paused = not self.paused
+            self.pause_selected = 0
+
+        if self.paused:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    self.pause_selected = (self.pause_selected - 1) % 3
+                elif event.key == pygame.K_DOWN:
+                    self.pause_selected = (self.pause_selected + 1) % 3
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    self._execute_pause_action(self.pause_selected)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, btn in enumerate(self.pause_buttons):
+                    if btn.collidepoint(event.pos):
+                        self._execute_pause_action(i)
+            elif event.type == pygame.MOUSEMOTION:
+                for i, btn in enumerate(self.pause_buttons):
+                    if btn.collidepoint(event.pos):
+                        self.pause_selected = i
+
+    def _execute_pause_action(self, action):
+        if action == 0:  # Reprendre
+            self.paused = False
+        elif action == 1:  # Menu principal
+            Renderer.reset_background_index()
+            self.game.change_scene(MenuScene(self.game))
+        elif action == 2:  # Quitter
+            self.game.running = False
 
     def update(self, dt):
         if self.paused:
@@ -146,7 +186,11 @@ class SkiScene(Scene):
             self.obstacle_spawn_delay -= dt
             # Mettre à jour le monde mais sans spawn d'obstacles
             self.world.distance += dt * 0.001
-            self.world.speed = settings.BASE_SCROLL_SPEED + self.world.distance * settings.SPEED_GROWTH * 500
+            # Utiliser la même formule que world.update()
+            self.world.speed = min(
+                settings.MAX_SCROLL_SPEED,
+                settings.BASE_SCROLL_SPEED + self.world.distance * settings.SPEED_GROWTH
+            )
             # Déplacer les obstacles existants
             for obstacle in self.world.obstacles:
                 obstacle.update(self.world.speed)
@@ -278,9 +322,30 @@ class SkiScene(Scene):
 
         if self.paused:
             overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 140))
+            overlay.fill((0, 0, 0, 180))
             screen.blit(overlay, (0, 0))
-            self.renderer.draw_title(screen, "Pause", "Echap pour reprendre")
+
+            # Titre PAUSE
+            title = self.renderer.font_big.render("PAUSE", True, (255, 255, 255))
+            screen.blit(title, (settings.WIDTH // 2 - title.get_width() // 2, settings.HEIGHT // 2 - 200))
+
+            # Boutons du menu pause
+            labels = ["Reprendre", "Menu Principal", "Quitter"]
+            mouse_pos = pygame.mouse.get_pos()
+            for i, (btn, label) in enumerate(zip(self.pause_buttons, labels)):
+                hovered = btn.collidepoint(mouse_pos) or i == self.pause_selected
+                color = (80, 140, 200) if hovered else (50, 60, 80)
+                border_color = (120, 180, 255) if hovered else (100, 110, 130)
+
+                pygame.draw.rect(screen, color, btn, border_radius=12)
+                pygame.draw.rect(screen, border_color, btn, 3, border_radius=12)
+
+                text = self.renderer.font_medium.render(label, True, (255, 255, 255))
+                screen.blit(text, (btn.centerx - text.get_width() // 2, btn.centery - text.get_height() // 2))
+
+            # Instruction
+            hint = self.renderer.font_tiny.render("Flèches + Entrée ou cliquez", True, (150, 150, 160))
+            screen.blit(hint, (settings.WIDTH // 2 - hint.get_width() // 2, settings.HEIGHT // 2 + 180))
 
 
 class ShootingScene(Scene):
@@ -337,6 +402,8 @@ class ShootingScene(Scene):
                     if self.player.take_damage():
                         self.game.change_scene(GameOverScene(self.game, self.world.score, self.world.medal_score, self.world.distance))
                         return
+                # Changer de map après la phase de tir
+                self.renderer.next_background()
                 # Retourner au ski avec délai d'obstacles
                 self.game.change_scene(SkiScene(self.game, self.player, self.world, from_shooting=True))
             return
@@ -452,6 +519,7 @@ class GameOverScene(Scene):
 
         left, right, jump, start = self.input.consume()
         if self.can_restart and (start or jump):
+            Renderer.reset_background_index()
             self.game.change_scene(CountdownScene(self.game, with_start=True))
 
     def render(self, screen):
