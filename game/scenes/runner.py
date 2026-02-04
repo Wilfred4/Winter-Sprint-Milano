@@ -13,10 +13,11 @@ class MenuScene(Scene):
         super().__init__(game)
         self.input = InputController()
         self.renderer = Renderer()
-        self.start_button = pygame.Rect(0, 0, 300, 84)
-        self.quit_button = pygame.Rect(0, 0, 300, 84)
-        self.start_button.center = (settings.WIDTH // 2, settings.HEIGHT - 180)
-        self.quit_button.center = (settings.WIDTH // 2, settings.HEIGHT - 100)
+        # Boutons adaptés pour 1920x1080
+        self.start_button = pygame.Rect(0, 0, 450, 120)
+        self.quit_button = pygame.Rect(0, 0, 450, 120)
+        self.start_button.center = (settings.WIDTH // 2, settings.HEIGHT - 280)
+        self.quit_button.center = (settings.WIDTH // 2, settings.HEIGHT - 140)
 
     def handle_event(self, event):
         self.input.handle_event(event)
@@ -145,7 +146,7 @@ class SkiScene(Scene):
             self.obstacle_spawn_delay -= dt
             # Mettre à jour le monde mais sans spawn d'obstacles
             self.world.distance += dt * 0.001
-            self.world.speed = settings.BASE_SCROLL_SPEED + self.world.distance * settings.SPEED_GROWTH * 1000
+            self.world.speed = settings.BASE_SCROLL_SPEED + self.world.distance * settings.SPEED_GROWTH * 500
             # Déplacer les obstacles existants
             for obstacle in self.world.obstacles:
                 obstacle.update(self.world.speed)
@@ -294,10 +295,11 @@ class ShootingScene(Scene):
 
         # Créer les 5 cibles (positionnées dans la bannière)
         self.targets = []
-        total_width = settings.WIDTH - 200
+        margin = 200  # Marge sur les côtés
+        total_width = settings.WIDTH - 2 * margin
         spacing = total_width // (settings.NUM_TARGETS - 1)
         for i in range(settings.NUM_TARGETS):
-            x = 100 + i * spacing - settings.TARGET_SIZE[0] // 2
+            x = margin + i * spacing - settings.TARGET_SIZE[0] // 2
             self.targets.append(Target(x=x))
 
         # Créer le viseur (au même niveau Y que les cibles)
@@ -407,7 +409,7 @@ class ShootingScene(Scene):
                 msg = f"Raté ! {self.targets_hit}/{settings.NUM_TARGETS} (-1 vie)"
                 color = (200, 60, 60)
             text = self.renderer.font_big.render(msg, True, color)
-            screen.blit(text, (settings.WIDTH // 2 - text.get_width() // 2, settings.HEIGHT - 120))
+            screen.blit(text, (settings.WIDTH // 2 - text.get_width() // 2, settings.HEIGHT - 180))
 
 
 class GameOverScene(Scene):
