@@ -44,6 +44,7 @@ class Renderer:
         self.target_hit_image = None
         self.target_miss_image = None
         self.sight_image = self._load_image(settings.SIGHT_IMG, settings.SIGHT_SIZE)
+        self.gun_image = self._load_gun_image()
 
         # Images compteur
         self.countdown_images = {
@@ -52,6 +53,14 @@ class Renderer:
             1: self._load_countdown_image(settings.COUNTDOWN_1_IMG),
             "start": self._load_countdown_image(settings.COUNTDOWN_START_IMG),
         }
+
+        # Images boutons menu
+        self.button_biathlon_img = self._load_button_image(settings.BUTTON_BIATHLON_IMG)
+        self.button_hockey_img = self._load_button_image(settings.BUTTON_HOCKEY_IMG)
+        self.button_quit_img = self._load_button_image(settings.BUTTON_QUIT_IMG)
+
+        # Image cœur
+        self.heart_image = self._load_image(settings.HEART_IMG, (50, 50)) if settings.HEART_IMG.exists() else None
 
     def _load_all_backgrounds(self):
         """Charge tous les fonds de piste disponibles"""
@@ -140,6 +149,22 @@ class Renderer:
             return pygame.image.load(settings.MENU_BUTTON_IMG).convert_alpha()
         return None
 
+    def _load_button_image(self, path):
+        """Charge une image de bouton pour le menu"""
+        if path.exists():
+            return pygame.image.load(path).convert_alpha()
+        return None
+
+    def _load_gun_image(self):
+        """Charge l'image de l'arme pour la phase de tir"""
+        if settings.GUN_IMG.exists():
+            image = pygame.image.load(settings.GUN_IMG).convert_alpha()
+            # Taille Arme
+            scale = 1000 / image.get_width()
+            new_h = int(image.get_height() * scale)
+            return pygame.transform.smoothscale(image, (500, new_h))
+        return None
+
     def draw_background(self, screen, scroll_speed=0.0):
         if self.background_image:
             self._bg_offset = (self._bg_offset - scroll_speed) % self._bg_height
@@ -198,7 +223,7 @@ class Renderer:
         screen.blit(medal_text, (16, 36))
         screen.blit(speed_text, (16, 60))
 
-    def draw_menu(self, screen, buttons, title="CHOISIR UN JEU"):
+    def draw_menu(self, screen, buttons, title=None):
         if self.menu_image:
             screen.blit(self.menu_image, (0, 0))
         else:
@@ -215,16 +240,16 @@ class Renderer:
             pygame.draw.circle(glow, (80, 130, 255, 40), (settings.WIDTH // 2, 220), 320)
             screen.blit(glow, (0, 0))
 
-        title_text = self.font_big.render(title, True, (240, 245, 255))
-        shadow = self.font_big.render(title, True, (10, 20, 40))
-        screen.blit(shadow, (settings.WIDTH // 2 - title_text.get_width() // 2 + 3, 110 + 3))
-        screen.blit(title_text, (settings.WIDTH // 2 - title_text.get_width() // 2, 110))
-
-        subtitle = self.font_small.render("Biathlon ou Hockey 1v1", True, (200, 210, 225))
-        screen.blit(subtitle, (settings.WIDTH // 2 - subtitle.get_width() // 2, 170))
-
         for rect, hovered, label in buttons:
-            self._draw_modern_button(screen, rect, hovered, label)
+            # Sélectionner l'image de bouton appropriée
+            btn_img = None
+            if label.upper() == "BIATHLON":
+                btn_img = self.button_biathlon_img
+            elif label.upper() == "HOCKEY":
+                btn_img = self.button_hockey_img
+            elif label.upper() in ("QUITTER", "QUIT"):
+                btn_img = self.button_quit_img
+            self._draw_modern_button(screen, rect, hovered, label, btn_img)
 
     def _draw_glass_button(self, screen, rect, hovered, label):
         if self.menu_button_image:
@@ -253,29 +278,43 @@ class Renderer:
         screen.blit(shadow, (rect.centerx - text.get_width() // 2 + 2, rect.centery - text.get_height() // 2 + 2))
         screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
 
-    def _draw_modern_button(self, screen, rect, hovered, label):
-        base = (34, 48, 74)
-        border = (120, 160, 220)
-        glow = (90, 140, 230, 80)
-        if hovered:
-            base = (44, 64, 96)
-            border = (160, 200, 255)
+    def _draw_modern_button(self, screen, rect, hovered, label, button_image=None):
+        if button_image:
+            # Utiliser l'image du bouton
+            scaled = pygame.transform.smoothscale(button_image, (rect.width, rect.height))
+            if hovered:
+                # Effet de hover : légèrement plus grand
+                scale = 1.05
+                w = int(rect.width * scale)
+                h = int(rect.height * scale)
+                hover_scaled = pygame.transform.smoothscale(button_image, (w, h))
+                screen.blit(hover_scaled, (rect.centerx - w // 2, rect.centery - h // 2))
+            else:
+                screen.blit(scaled, rect.topleft)
+        else:
+            # Fallback: dessiner un bouton coloré
+            base = (34, 48, 74)
+            border = (120, 160, 220)
+            glow = (90, 140, 230, 80)
+            if hovered:
+                base = (44, 64, 96)
+                border = (160, 200, 255)
 
-        # ombre
-        shadow_rect = rect.move(0, 6)
-        pygame.draw.rect(screen, (10, 14, 22), shadow_rect, border_radius=18)
+            # ombre
+            shadow_rect = rect.move(0, 6)
+            pygame.draw.rect(screen, (10, 14, 22), shadow_rect, border_radius=18)
 
-        # halo
-        if hovered:
-            halo = pygame.Surface((rect.width + 20, rect.height + 20), pygame.SRCALPHA)
-            pygame.draw.rect(halo, glow, halo.get_rect(), border_radius=22)
-            screen.blit(halo, (rect.x - 10, rect.y - 10))
+            # halo
+            if hovered:
+                halo = pygame.Surface((rect.width + 20, rect.height + 20), pygame.SRCALPHA)
+                pygame.draw.rect(halo, glow, halo.get_rect(), border_radius=22)
+                screen.blit(halo, (rect.x - 10, rect.y - 10))
 
-        pygame.draw.rect(screen, base, rect, border_radius=18)
-        pygame.draw.rect(screen, border, rect, 3, border_radius=18)
+            pygame.draw.rect(screen, base, rect, border_radius=18)
+            pygame.draw.rect(screen, border, rect, 3, border_radius=18)
 
-        text = self.font_big.render(label, True, (245, 250, 255))
-        screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
+            text = self.font_big.render(label, True, (245, 250, 255))
+            screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
 
     def draw_title(self, screen, title, subtitle):
         t = self.font_big.render(title, True, settings.UI_COLOR)
@@ -347,6 +386,15 @@ class Renderer:
             pygame.draw.circle(screen, settings.SIGHT_COLOR, (cx, cy), size // 2, 3)
             pygame.draw.circle(screen, settings.SIGHT_COLOR, (cx, cy), 4)
 
+    def draw_gun(self, screen, sight, recoil_offset=0):
+        """Dessine l'arme qui suit le viseur avec effet de recul"""
+        if self.gun_image:
+            # Position centrée horizontalement sur le viseur
+            gun_x = int(sight.x + sight.width // 2 - self.gun_image.get_width() // 2)
+            # Position en bas de l'écran, remontée de 100px, avec offset de recul
+            gun_y = settings.HEIGHT - self.gun_image.get_height() - 50 - int(recoil_offset)
+            screen.blit(self.gun_image, (gun_x, gun_y))
+
     def draw_countdown(self, screen, step):
         """Dessine l'image du compte à rebours (3, 2, 1, start)"""
         image = self.countdown_images.get(step)
@@ -384,8 +432,8 @@ class Renderer:
         screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 80))
 
     def draw_lives(self, screen, lives):
-        """Affiche les vies (cœurs)"""
-        heart_size = 45  # Taille pour 1920x1080
+        """Affiche les vies (cœurs) avec image"""
+        heart_size = 50  # Taille pour 1920x1080
         max_display = 5
         start_x = settings.WIDTH - 40 - (heart_size + 12) * min(max_display, max(0, lives + 1))
 
@@ -393,13 +441,22 @@ class Renderer:
             if i >= max_display:
                 break
             x = start_x + i * (heart_size + 12)
-            self._draw_heart(screen, x, 20, heart_size, (220, 60, 60))
+            if self.heart_image:
+                screen.blit(self.heart_image, (x, 15))
+            else:
+                self._draw_heart(screen, x, 20, heart_size, (220, 60, 60))
 
         if lives < 0:
-            self._draw_heart(screen, settings.WIDTH - 40 - heart_size, 20, heart_size, (150, 150, 160), filled=False)
+            # Cœur vide ou grisé quand plus de vies
+            if self.heart_image:
+                gray_heart = self.heart_image.copy()
+                gray_heart.fill((100, 100, 100, 180), special_flags=pygame.BLEND_RGBA_MULT)
+                screen.blit(gray_heart, (settings.WIDTH - 40 - heart_size, 15))
+            else:
+                self._draw_heart(screen, settings.WIDTH - 40 - heart_size, 20, heart_size, (150, 150, 160), filled=False)
 
     def _draw_heart(self, screen, x, y, size, color, filled=True):
-        """Dessine un cœur"""
+        """Dessine un cœur (fallback si pas d'image)"""
         points = [
             (x + size // 2, y + size),
             (x, y + size // 3),
