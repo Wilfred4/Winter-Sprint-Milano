@@ -1,3 +1,5 @@
+import time
+
 import pygame
 import math
 
@@ -7,10 +9,11 @@ from game.models.entities import lane_x, TargetState
 
 class Renderer:
     def __init__(self):
-        self.font_big = pygame.font.SysFont("consolas", 36)
-        self.font_medium = pygame.font.SysFont("consolas", 28)
-        self.font_small = pygame.font.SysFont("consolas", 20)
-        self.font_tiny = pygame.font.SysFont("consolas", 16)
+        # Polices adaptées pour 1920x1080
+        self.font_big = pygame.font.SysFont("consolas", 56)
+        self.font_medium = pygame.font.SysFont("consolas", 42)
+        self.font_small = pygame.font.SysFont("consolas", 32)
+        self.font_tiny = pygame.font.SysFont("consolas", 24)
         self.player_image = self._load_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
         self.background_image = self._load_background()
@@ -50,8 +53,8 @@ class Renderer:
     def _load_countdown_image(self, path):
         if path.exists():
             image = pygame.image.load(path).convert_alpha()
-            # Redimensionner à une taille raisonnable (200x200)
-            return pygame.transform.smoothscale(image, (600, 400))
+            # Taille du compteur pour 1920x1080
+            return pygame.transform.smoothscale(image, (500, 350))
         return None
 
     def _load_player_image(self):
@@ -271,39 +274,37 @@ class Renderer:
         """UI pour la phase de tir"""
         # Tirs restants
         shots_text = self.font_big.render(f"Tirs: {shots_remaining}", True, settings.UI_COLOR)
-        screen.blit(shots_text, (settings.WIDTH // 2 - shots_text.get_width() // 2, 20))
+        screen.blit(shots_text, (settings.WIDTH // 2 - shots_text.get_width() // 2, 30))
 
         # Cibles touchées
         hit_text = self.font_small.render(f"Touchées: {targets_hit}/{settings.NUM_TARGETS}", True, settings.UI_COLOR)
-        screen.blit(hit_text, (settings.WIDTH // 2 - hit_text.get_width() // 2, 70))
+        screen.blit(hit_text, (settings.WIDTH // 2 - hit_text.get_width() // 2, 100))
 
         # Score (gauche)
         score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
-        screen.blit(score_text, (16, 12))
+        screen.blit(score_text, (30, 20))
 
         # Vies (droite)
         self.draw_lives(screen, lives)
 
         # Instruction
         instruction = self.font_small.render("ESPACE pour tirer", True, settings.UI_COLOR)
-        screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 50))
+        screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 80))
 
     def draw_lives(self, screen, lives):
         """Affiche les vies (cœurs)"""
-        heart_size = 28
-        max_display = 5  # Afficher max 5 cœurs
-        start_x = settings.WIDTH - 20 - (heart_size + 8) * min(max_display, max(0, lives + 1))
+        heart_size = 45  # Taille pour 1920x1080
+        max_display = 5
+        start_x = settings.WIDTH - 40 - (heart_size + 12) * min(max_display, max(0, lives + 1))
 
-        # Afficher les cœurs pleins pour les vies
-        for i in range(max(0, lives + 1)):  # +1 car on commence à 0
+        for i in range(max(0, lives + 1)):
             if i >= max_display:
                 break
-            x = start_x + i * (heart_size + 8)
-            self._draw_heart(screen, x, 15, heart_size, (220, 60, 60))
+            x = start_x + i * (heart_size + 12)
+            self._draw_heart(screen, x, 20, heart_size, (220, 60, 60))
 
-        # Si aucune vie, afficher un cœur vide
         if lives < 0:
-            self._draw_heart(screen, settings.WIDTH - 20 - heart_size, 15, heart_size, (150, 150, 160), filled=False)
+            self._draw_heart(screen, settings.WIDTH - 40 - heart_size, 20, heart_size, (150, 150, 160), filled=False)
 
     def _draw_heart(self, screen, x, y, size, color, filled=True):
         """Dessine un cœur"""
@@ -321,15 +322,15 @@ class Renderer:
 
     def draw_ski_ui(self, screen, score, medal_score, lives, time_to_shooting):
         """UI pour la phase ski avec vies et compte à rebours circulaire"""
-        # Score et médailles (gauche)
         shadow = settings.UI_SHADOW
         score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
         medal_text = self.font_small.render(f"Médailles: {medal_score}", True, settings.UI_COLOR)
 
-        screen.blit(self.font_small.render(f"Score: {score}", True, shadow), (17, 13))
-        screen.blit(self.font_small.render(f"Médailles: {medal_score}", True, shadow), (17, 37))
-        screen.blit(score_text, (16, 12))
-        screen.blit(medal_text, (16, 36))
+        # Positions pour 1920x1080
+        screen.blit(self.font_small.render(f"Score: {score}", True, shadow), (32, 22))
+        screen.blit(self.font_small.render(f"Médailles: {medal_score}", True, shadow), (32, 62))
+        screen.blit(score_text, (30, 20))
+        screen.blit(medal_text, (30, 60))
 
         # Compte à rebours circulaire (centre)
         self.draw_circular_timer(screen, time_to_shooting, settings.SHOOTING_INTERVAL)
@@ -339,9 +340,9 @@ class Renderer:
 
     def draw_circular_timer(self, screen, time_remaining, total_time):
         """Dessine un compte à rebours circulaire"""
-        cx, cy = settings.WIDTH // 2, 45
-        radius = 32
-        thickness = 6
+        cx, cy = settings.WIDTH // 2, 60
+        radius = 50  # Plus grand pour 1920x1080
+        thickness = 8
 
         # Fond du cercle (gris)
         pygame.draw.circle(screen, (80, 80, 90), (cx, cy), radius, thickness)
