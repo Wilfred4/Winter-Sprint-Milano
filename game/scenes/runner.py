@@ -6,6 +6,7 @@ from game.models.entities import Player, Target, Sight, TargetState
 from game.models.world import World
 from game.scenes.base import Scene
 from game.views.renderer import Renderer
+from game.hockey.scene import HockeyScene
 
 
 # === GESTION DE LA MUSIQUE ===
@@ -70,19 +71,22 @@ class MenuScene(Scene):
         # Lancer la musique du menu
         MusicManager.play_menu_music()
 
-        # 3 boutons : Biathlon, Hockey, Quitter
-        # Ratio des images: 1344x768 = 1.75
-        btn_width, btn_height = 280, 140
+        # 5 boutons : Biathlon, Hockey, Leaderboard, Settings, Quitter
+        btn_width, btn_height = 380, 190
         self.biathlon_button = pygame.Rect(0, 0, btn_width, btn_height)
         self.hockey_button = pygame.Rect(0, 0, btn_width, btn_height)
+        self.leaderboard_button = pygame.Rect(0, 0, btn_width, btn_height)
+        self.settings_button = pygame.Rect(0, 0, btn_width, btn_height)
         self.quit_button = pygame.Rect(0, 0, btn_width, btn_height)
 
-        # Positions resserrées vers le bas pour voir le logo
+        # Positions collées vers le bas pour voir le logo
         center_x = settings.WIDTH // 2
-        spacing = 10  # Espacement entre boutons
-        bottom_margin = 50  # Marge depuis le bas
+        spacing = 0  # Pas d'espacement entre boutons
+        bottom_margin = 40  # Marge depuis le bas
         self.quit_button.center = (center_x, settings.HEIGHT - bottom_margin - btn_height // 2)
-        self.hockey_button.center = (center_x, self.quit_button.centery - btn_height - spacing)
+        self.settings_button.center = (center_x, self.quit_button.centery - btn_height - spacing)
+        self.leaderboard_button.center = (center_x, self.settings_button.centery - btn_height - spacing)
+        self.hockey_button.center = (center_x, self.leaderboard_button.centery - btn_height - spacing)
         self.biathlon_button.center = (center_x, self.hockey_button.centery - btn_height - spacing)
 
     def handle_event(self, event):
@@ -94,8 +98,11 @@ class MenuScene(Scene):
                 SoundManager.init()
                 self.game.change_scene(CountdownScene(self.game, with_start=True))
             if self.hockey_button.collidepoint(event.pos):
-                # TODO: Lancer le mode Hockey quand il sera implémenté
-                pass
+                self.game.change_scene(HockeyScene(self.game))
+            if self.leaderboard_button.collidepoint(event.pos):
+                pass  # TODO: Leaderboard
+            if self.settings_button.collidepoint(event.pos):
+                pass  # TODO: Settings
             if self.quit_button.collidepoint(event.pos):
                 self.game.running = False
 
@@ -112,6 +119,8 @@ class MenuScene(Scene):
         buttons = [
             (self.biathlon_button, self.biathlon_button.collidepoint(mouse_pos), "BIATHLON"),
             (self.hockey_button, self.hockey_button.collidepoint(mouse_pos), "HOCKEY"),
+            (self.leaderboard_button, self.leaderboard_button.collidepoint(mouse_pos), "LEADERBOARD"),
+            (self.settings_button, self.settings_button.collidepoint(mouse_pos), "SETTINGS"),
             (self.quit_button, self.quit_button.collidepoint(mouse_pos), "QUITTER"),
         ]
         self.renderer.draw_menu(screen, buttons)
@@ -519,6 +528,10 @@ class ShootingScene(Scene):
         self.transition_timer = 0
         self.phase_complete = False
 
+        # Timer pour la phase de tir
+        self.time_remaining = settings.SHOOTING_TIME_LIMIT
+        self.time_expired = False  # True si le temps est écoulé avant d'avoir tout tiré
+
         # Effets visuels
         self.floating_texts = []
         self.flash_color = None
@@ -548,17 +561,29 @@ class ShootingScene(Scene):
         if self.phase_complete:
             self.transition_timer += dt
             if self.transition_timer >= 1500:
-                if self.targets_hit == settings.NUM_TARGETS:
-                    self.player.lives += 1
-                elif self.targets_hit < settings.MIN_TARGETS_TO_HIT:
+                # Si temps écoulé ou pas assez de cibles touchées -> perd une vie
+                if self.time_expired or self.targets_hit < settings.MIN_TARGETS_TO_HIT:
                     if self.player.take_damage():
                         self.game.change_scene(GameOverScene(self.game, self.world.score, self.world.medal_score, self.world.distance))
                         return
+                elif self.targets_hit == settings.NUM_TARGETS and not self.time_expired:
+                    # Bonus vie seulement si toutes les cibles touchées dans le temps
+                    self.player.lives += 1
                 # Changer de map après la phase de tir
                 self.renderer.next_background()
                 # Retourner au ski avec délai d'obstacles
                 self.game.change_scene(SkiScene(self.game, self.player, self.world, from_shooting=True))
             return
+
+        # Mise à jour du timer
+        if self.time_remaining > 0:
+            self.time_remaining -= dt
+            if self.time_remaining <= 0:
+                self.time_remaining = 0
+                self.time_expired = True
+                self.phase_complete = True
+                self.flash_color = (255, 0, 0)
+                self.flash_alpha = 150
 
         self.sight.update()
 
@@ -630,12 +655,18 @@ class ShootingScene(Scene):
 
         self.renderer.draw_shooting_ui(screen, self.shots_remaining, self.targets_hit, self.world.score, self.player.lives)
 
+        # Afficher le timer
+        self._draw_shooting_timer(screen)
+
         self.renderer.draw_floating_text(screen, self.floating_texts)
         if self.flash_alpha > 0:
             self.renderer.draw_flash(screen, self.flash_color, self.flash_alpha)
 
         if self.phase_complete:
-            if self.targets_hit == settings.NUM_TARGETS:
+            if self.time_expired:
+                msg = f"TEMPS ÉCOULÉ ! {self.targets_hit}/{settings.NUM_TARGETS} (-1 vie)"
+                color = (200, 60, 60)
+            elif self.targets_hit == settings.NUM_TARGETS:
                 msg = f"PARFAIT ! {self.targets_hit}/{settings.NUM_TARGETS} (+1 vie)"
                 color = (255, 215, 0)
             elif self.targets_hit >= settings.MIN_TARGETS_TO_HIT:
@@ -646,6 +677,22 @@ class ShootingScene(Scene):
                 color = (200, 60, 60)
             text = self.renderer.font_big.render(msg, True, color)
             screen.blit(text, (settings.WIDTH // 2 - text.get_width() // 2, settings.HEIGHT - 180))
+
+    def _draw_shooting_timer(self, screen):
+        """Affiche le timer de la phase de tir"""
+        seconds = max(0, self.time_remaining / 1000)
+
+        # Couleur selon le temps restant
+        if seconds > 4:
+            color = (80, 200, 80)  # Vert
+        elif seconds > 2:
+            color = (255, 200, 60)  # Orange
+        else:
+            color = (255, 60, 60)  # Rouge
+
+        timer_text = self.renderer.font_big.render(f"{seconds:.1f}s", True, color)
+        # Position en haut à droite
+        screen.blit(timer_text, (settings.WIDTH - timer_text.get_width() - 30, 30))
 
 
 class GameOverScene(Scene):
@@ -680,6 +727,10 @@ class GameOverScene(Scene):
 
     def handle_event(self, event):
         self.input.handle_event(event)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_m and self.can_restart:
+                MusicManager.play_menu_music()
+                self.game.change_scene(MenuScene(self.game))
 
     def update(self, dt):
         self.animation_time += dt / 1000

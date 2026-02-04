@@ -51,7 +51,7 @@ MENU_BG_IMG = ASSETS_DIR / "accueil.png"
 # === SYSTÈME DE MAPS ===
 # Détection automatique des fonds de piste (fondrun*.png, fondrun*.jpg)
 def get_background_images():
-    """Récupère tous les fichiers de fond de piste disponibles"""
+    "Récupère tous les fichiers de fond de piste disponibles"
     backgrounds = []
     for ext in ['*.png', '*.jpg', '*.jpeg']:
         backgrounds.extend(ASSETS_DIR.glob(f'fondrun{ext}'))
@@ -67,7 +67,11 @@ MENU_BUTTON_IMG = ASSETS_DIR / "bouttonAccueil.png"
 BUTTON_BIATHLON_IMG = ASSETS_DIR / "bouton_biathlon.png"
 BUTTON_HOCKEY_IMG = ASSETS_DIR / "bouton_hockey.png"
 BUTTON_QUIT_IMG = ASSETS_DIR / "bouton_quitter.png"
+BUTTON_SETTINGS_IMG = ASSETS_DIR / "boutton_settings.png"
+BUTTON_LEADERBOARD_IMG = ASSETS_DIR / "boutton_leaderboard.png"
 HEART_IMG = ASSETS_DIR / "couer.png"
+HEART_SIZE = (80, 68)  # Taille des cœurs (largeur, hauteur)
+HEART_Y = 15  # Position Y des cœurs
 
 # Sons
 MUSIC_MENU = ASSETS_DIR / "son_menu.mp3"
@@ -113,6 +117,7 @@ SHOOTING_INTERVAL = 20000  # ms (20 secondes)
 NUM_TARGETS = 5
 TARGET_HIT_BONUS = 50
 MIN_TARGETS_TO_HIT = 3
+SHOOTING_TIME_LIMIT = 8000  # ms - Temps max pour tirer sur toutes les cibles (8 secondes)
 
 # Position et taille des cibles
 TARGET_Y = 280 #180  # Position Y des cibles

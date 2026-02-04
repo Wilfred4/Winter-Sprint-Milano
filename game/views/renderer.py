@@ -58,9 +58,11 @@ class Renderer:
         self.button_biathlon_img = self._load_button_image(settings.BUTTON_BIATHLON_IMG)
         self.button_hockey_img = self._load_button_image(settings.BUTTON_HOCKEY_IMG)
         self.button_quit_img = self._load_button_image(settings.BUTTON_QUIT_IMG)
+        self.button_settings_img = self._load_button_image(settings.BUTTON_SETTINGS_IMG)
+        self.button_leaderboard_img = self._load_button_image(settings.BUTTON_LEADERBOARD_IMG)
 
         # Image cœur
-        self.heart_image = self._load_image(settings.HEART_IMG, (50, 50)) if settings.HEART_IMG.exists() else None
+        self.heart_image = self._load_image(settings.HEART_IMG, settings.HEART_SIZE) if settings.HEART_IMG.exists() else None
 
     def _load_all_backgrounds(self):
         """Charge tous les fonds de piste disponibles"""
@@ -249,6 +251,10 @@ class Renderer:
                 btn_img = self.button_hockey_img
             elif label.upper() in ("QUITTER", "QUIT"):
                 btn_img = self.button_quit_img
+            elif label.upper() == "SETTINGS":
+                btn_img = self.button_settings_img
+            elif label.upper() == "LEADERBOARD":
+                btn_img = self.button_leaderboard_img
             self._draw_modern_button(screen, rect, hovered, label, btn_img)
 
     def _draw_glass_button(self, screen, rect, hovered, label):
@@ -433,7 +439,8 @@ class Renderer:
 
     def draw_lives(self, screen, lives):
         """Affiche les vies (cœurs) avec image"""
-        heart_size = 50  # Taille pour 1920x1080
+        heart_size = settings.HEART_SIZE[0]  # Largeur du cœur
+        heart_y = settings.HEART_Y  # Position Y
         max_display = 5
         start_x = settings.WIDTH - 40 - (heart_size + 12) * min(max_display, max(0, lives + 1))
 
@@ -442,18 +449,18 @@ class Renderer:
                 break
             x = start_x + i * (heart_size + 12)
             if self.heart_image:
-                screen.blit(self.heart_image, (x, 15))
+                screen.blit(self.heart_image, (x, heart_y))
             else:
-                self._draw_heart(screen, x, 20, heart_size, (220, 60, 60))
+                self._draw_heart(screen, x, heart_y, heart_size, (220, 60, 60))
 
         if lives < 0:
             # Cœur vide ou grisé quand plus de vies
             if self.heart_image:
                 gray_heart = self.heart_image.copy()
                 gray_heart.fill((100, 100, 100, 180), special_flags=pygame.BLEND_RGBA_MULT)
-                screen.blit(gray_heart, (settings.WIDTH - 40 - heart_size, 15))
+                screen.blit(gray_heart, (settings.WIDTH - 40 - heart_size, heart_y))
             else:
-                self._draw_heart(screen, settings.WIDTH - 40 - heart_size, 20, heart_size, (150, 150, 160), filled=False)
+                self._draw_heart(screen, settings.WIDTH - 40 - heart_size, heart_y, heart_size, (150, 150, 160), filled=False)
 
     def _draw_heart(self, screen, x, y, size, color, filled=True):
         """Dessine un cœur (fallback si pas d'image)"""
