@@ -15,6 +15,7 @@ class Renderer:
         self.font_small = pygame.font.SysFont("consolas", 32)
         self.font_tiny = pygame.font.SysFont("consolas", 24)
         self.player_image = self._load_player_image()
+        self.hockey_player_image = self._load_hockey_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
         self.background_image = self._load_background()
         self.menu_image = self._load_menu_background()
@@ -64,6 +65,12 @@ class Renderer:
             scale = h / image.get_height()
             w = int(image.get_width() * scale)
             return pygame.transform.smoothscale(image, (w, h))
+        return None
+
+    def _load_hockey_player_image(self):
+        if settings.PLAYER_IMG.exists():
+            image = pygame.image.load(settings.PLAYER_IMG).convert_alpha()
+            return image
         return None
 
     def _load_image(self, path, size):
@@ -149,14 +156,33 @@ class Renderer:
         screen.blit(medal_text, (16, 36))
         screen.blit(speed_text, (16, 60))
 
-    def draw_menu(self, screen, start_rect, start_hovered, quit_rect, quit_hovered):
+    def draw_menu(self, screen, buttons, title="CHOISIR UN JEU"):
         if self.menu_image:
             screen.blit(self.menu_image, (0, 0))
         else:
-            screen.fill(settings.BG_COLOR)
-        # glass style buttons
-        self._draw_glass_button(screen, start_rect, start_hovered, "START")
-        self._draw_glass_button(screen, quit_rect, quit_hovered, "QUIT")
+            # fond dégradé moderne
+            for y in range(settings.HEIGHT):
+                t = y / max(1, settings.HEIGHT)
+                r = int(14 + 20 * t)
+                g = int(20 + 40 * t)
+                b = int(36 + 80 * t)
+                pygame.draw.line(screen, (r, g, b), (0, y), (settings.WIDTH, y))
+
+            # halo central
+            glow = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+            pygame.draw.circle(glow, (80, 130, 255, 40), (settings.WIDTH // 2, 220), 320)
+            screen.blit(glow, (0, 0))
+
+        title_text = self.font_big.render(title, True, (240, 245, 255))
+        shadow = self.font_big.render(title, True, (10, 20, 40))
+        screen.blit(shadow, (settings.WIDTH // 2 - title_text.get_width() // 2 + 3, 110 + 3))
+        screen.blit(title_text, (settings.WIDTH // 2 - title_text.get_width() // 2, 110))
+
+        subtitle = self.font_small.render("Biathlon ou Hockey 1v1", True, (200, 210, 225))
+        screen.blit(subtitle, (settings.WIDTH // 2 - subtitle.get_width() // 2, 170))
+
+        for rect, hovered, label in buttons:
+            self._draw_modern_button(screen, rect, hovered, label)
 
     def _draw_glass_button(self, screen, rect, hovered, label):
         if self.menu_button_image:
@@ -183,6 +209,30 @@ class Renderer:
         text = self.font_big.render(label, True, (245, 255, 255))
         shadow = self.font_big.render(label, True, (20, 40, 60))
         screen.blit(shadow, (rect.centerx - text.get_width() // 2 + 2, rect.centery - text.get_height() // 2 + 2))
+        screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
+
+    def _draw_modern_button(self, screen, rect, hovered, label):
+        base = (34, 48, 74)
+        border = (120, 160, 220)
+        glow = (90, 140, 230, 80)
+        if hovered:
+            base = (44, 64, 96)
+            border = (160, 200, 255)
+
+        # ombre
+        shadow_rect = rect.move(0, 6)
+        pygame.draw.rect(screen, (10, 14, 22), shadow_rect, border_radius=18)
+
+        # halo
+        if hovered:
+            halo = pygame.Surface((rect.width + 20, rect.height + 20), pygame.SRCALPHA)
+            pygame.draw.rect(halo, glow, halo.get_rect(), border_radius=22)
+            screen.blit(halo, (rect.x - 10, rect.y - 10))
+
+        pygame.draw.rect(screen, base, rect, border_radius=18)
+        pygame.draw.rect(screen, border, rect, 3, border_radius=18)
+
+        text = self.font_big.render(label, True, (245, 250, 255))
         screen.blit(text, (rect.centerx - text.get_width() // 2, rect.centery - text.get_height() // 2))
 
     def draw_title(self, screen, title, subtitle):
@@ -376,6 +426,94 @@ class Renderer:
                 return  # Ne pas dessiner (effet clignotant)
         self.draw_player(screen, player)
 
+    # === HOCKEY ===
+
+    def draw_hockey_background(self, screen, rink_rect):
+        screen.fill(settings.HOCKEY_RINK_COLOR)
+        # glace bleutée
+        pygame.draw.rect(screen, (200, 222, 242), rink_rect, border_radius=18)
+        pygame.draw.rect(screen, (160, 190, 220), rink_rect, 6, border_radius=18)
+        pygame.draw.rect(screen, settings.HOCKEY_RINK_LINE, rink_rect, 3, border_radius=18)
+
+        # flocons légers
+        for i in range(80):
+            x = rink_rect.left + (i * 37) % max(1, rink_rect.width)
+            y = rink_rect.top + (i * 53) % max(1, rink_rect.height)
+            pygame.draw.circle(screen, (230, 240, 250), (x, y), 2)
+
+        cx = rink_rect.centerx
+        pygame.draw.line(screen, settings.HOCKEY_RINK_LINE,
+                         (cx, rink_rect.top + 10), (cx, rink_rect.bottom - 10), 3)
+
+        pygame.draw.circle(screen, settings.HOCKEY_RINK_LINE, rink_rect.center, 90, 3)
+
+        goal_h = settings.HOCKEY_GOAL_HEIGHT
+        goal_top = rink_rect.centery - goal_h // 2
+        pygame.draw.rect(screen, settings.HOCKEY_GOAL_COLOR,
+                         (rink_rect.left - 12, goal_top, 12, goal_h))
+        pygame.draw.rect(screen, settings.HOCKEY_GOAL_COLOR,
+                         (rink_rect.right, goal_top, 12, goal_h))
+
+    def draw_hockey_player(self, screen, player, color, use_sprite=False):
+        x, y, w, h = player.rect
+        if use_sprite and self.hockey_player_image:
+            img = self.hockey_player_image
+            scale = h / img.get_height()
+            new_w = max(1, int(img.get_width() * scale))
+            new_h = max(1, int(img.get_height() * scale))
+            sprite = pygame.transform.smoothscale(img, (new_w, new_h))
+            sx = x + w // 2 - new_w // 2
+            sy = y + h // 2 - new_h // 2
+            screen.blit(sprite, (sx, sy))
+            return
+        pygame.draw.rect(screen, color, (x, y, w, h), border_radius=18)
+        pygame.draw.rect(screen, (30, 30, 30), (x, y, w, h), 3, border_radius=18)
+
+    def draw_hockey_puck(self, screen, puck, trail=None):
+        if trail:
+            for i, (tx, ty) in enumerate(trail):
+                alpha = max(0, 200 - i * 12)
+                radius = max(2, puck.radius - i // 3)
+                surf = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+                # halo bleu
+                pygame.draw.circle(surf, (120, 170, 255, alpha), (radius + 2, radius + 2), radius + 1)
+                # coeur plus clair
+                pygame.draw.circle(surf, (200, 230, 255, alpha), (radius + 2, radius + 2), radius)
+                screen.blit(surf, (int(tx - radius - 2), int(ty - radius - 2)))
+
+        pygame.draw.circle(screen, settings.HOCKEY_PUCK_COLOR, (int(puck.x), int(puck.y)), puck.radius)
+        pygame.draw.circle(screen, (30, 30, 30), (int(puck.x), int(puck.y)), puck.radius, 3)
+
+    def draw_hockey_ui(self, screen, player_score, ai_score, time_left_ms):
+        score_text = self.font_medium.render(f"JOUEUR {player_score}  -  {ai_score} IA", True, (245, 245, 250))
+        screen.blit(score_text, (settings.WIDTH // 2 - score_text.get_width() // 2, 30))
+
+        subtitle = self.font_small.render("Premier à 3 buts", True, (200, 210, 220))
+        screen.blit(subtitle, (settings.WIDTH // 2 - subtitle.get_width() // 2, 80))
+
+        hint = self.font_tiny.render("ZQSD / FLÈCHES pour bouger - M pour menu", True, (200, 200, 210))
+        screen.blit(hint, (settings.WIDTH // 2 - hint.get_width() // 2, settings.HEIGHT - 60))
+
+    def draw_hockey_goal_text(self, screen, text):
+        msg = self.font_big.render(text, True, (255, 215, 0))
+        screen.blit(msg, (settings.WIDTH // 2 - msg.get_width() // 2, settings.HEIGHT // 2 - 40))
+
+    def draw_hockey_over(self, screen, result_text, player_score, ai_score):
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        title = self.font_big.render(result_text, True, (255, 215, 0))
+        screen.blit(title, (settings.WIDTH // 2 - title.get_width() // 2, settings.HEIGHT // 2 - 120))
+
+        score = self.font_medium.render(f"JOUEUR {player_score}  -  {ai_score} IA", True, (240, 240, 245))
+        screen.blit(score, (settings.WIDTH // 2 - score.get_width() // 2, settings.HEIGHT // 2 - 30))
+
+        replay = self.font_small.render("ENTER pour rejouer", True, (200, 200, 210))
+        menu = self.font_small.render("M pour menu", True, (200, 200, 210))
+        screen.blit(replay, (settings.WIDTH // 2 - replay.get_width() // 2, settings.HEIGHT // 2 + 60))
+        screen.blit(menu, (settings.WIDTH // 2 - menu.get_width() // 2, settings.HEIGHT // 2 + 110))
+
     # === EFFETS VISUELS ===
 
     def draw_flash(self, screen, color, alpha):
@@ -455,6 +593,10 @@ class Renderer:
             instruction = self.font_small.render("Appuie sur ENTER pour rejouer", True, (200, 200, 200))
             instruction.set_alpha(int(255 * pulse))
             screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 80))
+
+            menu = self.font_small.render("M pour menu", True, (200, 200, 200))
+            menu.set_alpha(int(255 * pulse))
+            screen.blit(menu, (settings.WIDTH // 2 - menu.get_width() // 2, settings.HEIGHT - 40))
 
     def _draw_stat_box(self, screen, cx, cy, label, value, color, alpha):
         """Dessine une boîte de statistique"""

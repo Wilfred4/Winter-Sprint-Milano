@@ -175,3 +175,53 @@ class Sight:
     def is_on_target(self, target: Target) -> bool:
         """Vérifie si le viseur est aligné avec une cible"""
         return abs(self.center_x - target.center_x) <= settings.TARGET_TOLERANCE
+
+
+# === HOCKEY ===
+
+
+@dataclass
+class HockeyPlayer:
+    x: float
+    y: float
+    width: int = settings.HOCKEY_PLAYER_SIZE[0]
+    height: int = settings.HOCKEY_PLAYER_SIZE[1]
+
+    @property
+    def rect(self):
+        return (int(self.x - self.width / 2), int(self.y - self.height / 2), self.width, self.height)
+
+    @property
+    def center(self):
+        return (self.x, self.y)
+
+
+@dataclass
+class Puck:
+    x: float
+    y: float
+    vx: float = 0.0
+    vy: float = 0.0
+    radius: int = settings.HOCKEY_PUCK_RADIUS
+
+    def update(self, dt_sec: float):
+        self.x += self.vx * dt_sec
+        self.y += self.vy * dt_sec
+
+        # friction
+        decay = max(0.0, 1.0 - settings.HOCKEY_PUCK_FRICTION * dt_sec)
+        self.vx *= decay
+        self.vy *= decay
+
+        # cap speed
+        speed = (self.vx ** 2 + self.vy ** 2) ** 0.5
+        if speed > settings.HOCKEY_PUCK_MAX_SPEED:
+            scale = settings.HOCKEY_PUCK_MAX_SPEED / speed
+            self.vx *= scale
+            self.vy *= scale
+
+        # stop micro jitter
+        if abs(self.vx) < 6:
+            self.vx = 0
+        if abs(self.vy) < 6:
+            self.vy = 0
