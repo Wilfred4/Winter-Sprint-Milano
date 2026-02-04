@@ -24,8 +24,9 @@ HORIZONTAL_SPEED = 1400  # px/sec pour changement de couloir
 TILT_FACTOR = 0.08
 
 # Vitesse et spawn
-BASE_SCROLL_SPEED = 6
-SPEED_GROWTH = 0.0004
+BASE_SCROLL_SPEED = 4       # Vitesse de départ
+MAX_SCROLL_SPEED = 15       # Vitesse maximale
+SPEED_GROWTH = 0.08         # Augmentation de vitesse par seconde de jeu
 
 SPAWN_INTERVAL = 800  # ms
 SPAWN_JITTER = 250    # ms
@@ -45,8 +46,23 @@ UI_SHADOW = (255, 255, 255)
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 PLAYER_IMG = ASSETS_DIR / "player.png"
 OBSTACLE_IMG = ASSETS_DIR / "sapin.png"
-BACKGROUND_IMG = ASSETS_DIR / "fondrun.jpg"
 MENU_BG_IMG = ASSETS_DIR / "accueil.png"
+
+# === SYSTÈME DE MAPS ===
+# Détection automatique des fonds de piste (fondrun*.png, fondrun*.jpg)
+def get_background_images():
+    """Récupère tous les fichiers de fond de piste disponibles"""
+    backgrounds = []
+    for ext in ['*.png', '*.jpg', '*.jpeg']:
+        backgrounds.extend(ASSETS_DIR.glob(f'fondrun{ext}'))
+        backgrounds.extend(ASSETS_DIR.glob(f'fondrun[0-9]{ext}'))
+        backgrounds.extend(ASSETS_DIR.glob(f'fondrun[0-9][0-9]{ext}'))
+    # Trier par nom pour un ordre cohérent
+    backgrounds = sorted(set(backgrounds), key=lambda x: x.name)
+    return backgrounds if backgrounds else [ASSETS_DIR / "fondrun.jpg"]
+
+BACKGROUND_IMAGES = get_background_images()  # Liste de tous les fonds disponibles
+BACKGROUND_IMG = BACKGROUND_IMAGES[0]  # Fond par défaut (premier de la liste)
 MENU_BUTTON_IMG = ASSETS_DIR / "bouttonAccueil.png"
 MEDAL_BRONZE_IMG = ASSETS_DIR / "bronze.png"
 MEDAL_SILVER_IMG = ASSETS_DIR / "argent.png"
