@@ -64,6 +64,16 @@ def get_background_images():
 BACKGROUND_IMAGES = get_background_images()  # Liste de tous les fonds disponibles
 BACKGROUND_IMG = BACKGROUND_IMAGES[0]  # Fond par défaut (premier de la liste)
 MENU_BUTTON_IMG = ASSETS_DIR / "bouttonAccueil.png"
+BUTTON_BIATHLON_IMG = ASSETS_DIR / "bouton_biathlon.png"
+BUTTON_HOCKEY_IMG = ASSETS_DIR / "bouton_hockey.png"
+BUTTON_QUIT_IMG = ASSETS_DIR / "bouton_quitter.png"
+HEART_IMG = ASSETS_DIR / "couer.png"
+
+# Sons
+MUSIC_MENU = ASSETS_DIR / "son_menu.mp3"
+MUSIC_GAME = ASSETS_DIR / "son_jeu.mp3"
+SOUND_COIN = ASSETS_DIR / "coin.mp3"  # Son quand on récupère une médaille
+
 MEDAL_BRONZE_IMG = ASSETS_DIR / "bronze.png"
 MEDAL_SILVER_IMG = ASSETS_DIR / "argent.png"
 MEDAL_GOLD_IMG = ASSETS_DIR / "or_1.png"
@@ -72,6 +82,8 @@ MEDAL_GOLD_IMG = ASSETS_DIR / "or_1.png"
 SHOOTING_BG_IMG = ASSETS_DIR / "stand_tire.png"
 TARGET_IMG = ASSETS_DIR / "cible.png"
 SIGHT_IMG = ASSETS_DIR / "viseur.png"
+GUN_IMG = ASSETS_DIR / "arme.png"
+SOUND_SHOTGUN = ASSETS_DIR / "shotgun.mp3"
 
 # Compteur (décompte)
 COUNTDOWN_3_IMG = ASSETS_DIR / "compteur3.png"
@@ -81,7 +93,8 @@ COUNTDOWN_START_IMG = ASSETS_DIR / "compteur_start.png"
 
 # Timing
 COUNTDOWN_STEP_DURATION = 1000  # ms par étape (3, 2, 1, Start)
-OBSTACLE_SPAWN_DELAY = 1500  # ms avant réapparition des obstacles après le tir
+OBSTACLE_SPAWN_DELAY = 3000  # ms avant réapparition des obstacles après le tir
+PRE_SHOOTING_CLEAR_TIME = 1000  # ms avant le décompte pour supprimer les obstacles
 
 # === MÉDAILLES ===
 MEDAL_POINTS = {

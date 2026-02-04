@@ -8,23 +8,94 @@ from game.scenes.base import Scene
 from game.views.renderer import Renderer
 
 
+# === GESTION DE LA MUSIQUE ===
+class MusicManager:
+    _current_music = None
+
+    @classmethod
+    def play_menu_music(cls):
+        if cls._current_music != "menu":
+            pygame.mixer.music.stop()
+            if settings.MUSIC_MENU.exists():
+                pygame.mixer.music.load(str(settings.MUSIC_MENU))
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # -1 = boucle infinie
+                cls._current_music = "menu"
+
+    @classmethod
+    def play_game_music(cls):
+        if cls._current_music != "game":
+            pygame.mixer.music.stop()
+            if settings.MUSIC_GAME.exists():
+                pygame.mixer.music.load(str(settings.MUSIC_GAME))
+                pygame.mixer.music.set_volume(0.4)
+                pygame.mixer.music.play(-1)  # -1 = boucle infinie
+                cls._current_music = "game"
+
+    @classmethod
+    def stop(cls):
+        pygame.mixer.music.stop()
+        cls._current_music = None
+
+
+# === GESTION DES SONS ===
+class SoundManager:
+    _coin_sound = None
+
+    @classmethod
+    def init(cls):
+        # Charger le son de pièce s'il existe
+        if settings.SOUND_COIN.exists():
+            cls._coin_sound = pygame.mixer.Sound(str(settings.SOUND_COIN))
+            cls._coin_sound.set_volume(0.6)
+        else:
+            # Essayer .wav
+            coin_wav = settings.ASSETS_DIR / "coin.wav"
+            if coin_wav.exists():
+                cls._coin_sound = pygame.mixer.Sound(str(coin_wav))
+                cls._coin_sound.set_volume(0.6)
+
+    @classmethod
+    def play_coin(cls):
+        if cls._coin_sound:
+            cls._coin_sound.play()
+
+
 class MenuScene(Scene):
     def __init__(self, game):
         super().__init__(game)
         self.input = InputController()
         self.renderer = Renderer()
-        # Boutons adaptés pour 1920x1080
-        self.start_button = pygame.Rect(0, 0, 450, 120)
-        self.quit_button = pygame.Rect(0, 0, 450, 120)
-        self.start_button.center = (settings.WIDTH // 2, settings.HEIGHT - 280)
-        self.quit_button.center = (settings.WIDTH // 2, settings.HEIGHT - 140)
+
+        # Lancer la musique du menu
+        MusicManager.play_menu_music()
+
+        # 3 boutons : Biathlon, Hockey, Quitter
+        # Ratio des images: 1344x768 = 1.75
+        btn_width, btn_height = 280, 140
+        self.biathlon_button = pygame.Rect(0, 0, btn_width, btn_height)
+        self.hockey_button = pygame.Rect(0, 0, btn_width, btn_height)
+        self.quit_button = pygame.Rect(0, 0, btn_width, btn_height)
+
+        # Positions resserrées vers le bas pour voir le logo
+        center_x = settings.WIDTH // 2
+        spacing = 10  # Espacement entre boutons
+        bottom_margin = 50  # Marge depuis le bas
+        self.quit_button.center = (center_x, settings.HEIGHT - bottom_margin - btn_height // 2)
+        self.hockey_button.center = (center_x, self.quit_button.centery - btn_height - spacing)
+        self.biathlon_button.center = (center_x, self.hockey_button.centery - btn_height - spacing)
 
     def handle_event(self, event):
         self.input.handle_event(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.start_button.collidepoint(event.pos):
+            if self.biathlon_button.collidepoint(event.pos):
                 Renderer.reset_background_index()
+                MusicManager.play_game_music()
+                SoundManager.init()
                 self.game.change_scene(CountdownScene(self.game, with_start=True))
+            if self.hockey_button.collidepoint(event.pos):
+                # TODO: Lancer le mode Hockey quand il sera implémenté
+                pass
             if self.quit_button.collidepoint(event.pos):
                 self.game.running = False
 
@@ -32,13 +103,18 @@ class MenuScene(Scene):
         left, right, jump, start = self.input.consume()
         if start or jump:
             Renderer.reset_background_index()
+            MusicManager.play_game_music()
+            SoundManager.init()
             self.game.change_scene(CountdownScene(self.game, with_start=True))
 
     def render(self, screen):
         mouse_pos = pygame.mouse.get_pos()
-        start_hovered = self.start_button.collidepoint(mouse_pos)
-        quit_hovered = self.quit_button.collidepoint(mouse_pos)
-        self.renderer.draw_menu(screen, self.start_button, start_hovered, self.quit_button, quit_hovered)
+        buttons = [
+            (self.biathlon_button, self.biathlon_button.collidepoint(mouse_pos), "BIATHLON"),
+            (self.hockey_button, self.hockey_button.collidepoint(mouse_pos), "HOCKEY"),
+            (self.quit_button, self.quit_button.collidepoint(mouse_pos), "QUITTER"),
+        ]
+        self.renderer.draw_menu(screen, buttons)
 
 
 class CountdownScene(Scene):
@@ -109,6 +185,14 @@ class SkiScene(Scene):
         self.from_shooting = from_shooting
         self.obstacle_spawn_delay = settings.OBSTACLE_SPAWN_DELAY if from_shooting else 0
 
+        # Supprimer tous les obstacles quand on revient du tir
+        if from_shooting:
+            self.world.obstacles.clear()
+
+        # État de préparation avant le tir (suppression des obstacles)
+        self.pre_shooting_preparation = False
+        self.preparation_timer = 0
+
         # État du décompte avant le tir
         self.pre_shooting_countdown = False
         self.countdown_step = 3
@@ -158,6 +242,7 @@ class SkiScene(Scene):
             self.paused = False
         elif action == 1:  # Menu principal
             Renderer.reset_background_index()
+            MusicManager.play_menu_music()
             self.game.change_scene(MenuScene(self.game))
         elif action == 2:  # Quitter
             self.game.running = False
@@ -166,12 +251,18 @@ class SkiScene(Scene):
         if self.paused:
             return
 
-        # Gérer le décompte avant le tir
-        if self.pre_shooting_countdown:
-            self._update_pre_shooting_countdown(dt)
+        left, right, jump, _start = self.input.consume()
+
+        # Gérer la phase de préparation (suppression des obstacles)
+        if self.pre_shooting_preparation:
+            self._update_pre_shooting_preparation(dt, left, right, jump)
             return
 
-        left, right, jump, _start = self.input.consume()
+        # Gérer le décompte avant le tir (joueur peut bouger)
+        if self.pre_shooting_countdown:
+            self._update_pre_shooting_countdown(dt, left, right, jump)
+            return
+
         if left:
             self.player.move_left()
         if right:
@@ -207,10 +298,11 @@ class SkiScene(Scene):
         # Timer pour la phase de tir
         self.time_to_shooting -= dt
         if self.time_to_shooting <= 0:
-            # Lancer le décompte avant le tir
-            self.pre_shooting_countdown = True
-            self.countdown_step = 3
-            self.countdown_timer = 0
+            # Lancer la phase de préparation (suppression des obstacles)
+            self.pre_shooting_preparation = True
+            self.preparation_timer = 0
+            # Supprimer tous les obstacles immédiatement
+            self.world.obstacles.clear()
             return
 
         # Score basé sur les obstacles évités
@@ -228,18 +320,68 @@ class SkiScene(Scene):
             if self.player.take_damage():
                 self.game.change_scene(GameOverScene(self.game, self.world.score, self.world.medal_score, self.world.distance))
 
-    def _update_pre_shooting_countdown(self, dt):
-        """Met à jour le décompte avant la phase de tir"""
-        self.countdown_timer += dt
+    def _update_pre_shooting_preparation(self, dt, left, right, jump):
+        """Phase de préparation avant le décompte - pas d'obstacles, joueur peut bouger"""
+        self.preparation_timer += dt
 
-        # Pendant le décompte, pas de spawn d'obstacles mais on continue à les déplacer
+        # Le joueur peut toujours bouger
+        if left:
+            self.player.move_left()
+        if right:
+            self.player.move_right()
+        if jump:
+            self.player.jump()
+        self.player.update(dt)
+
+        # Continuer le scroll mais sans obstacles
         self.world.distance += dt * 0.001
-        for obstacle in self.world.obstacles:
-            obstacle.update(self.world.speed)
+        self.world.speed = min(
+            settings.MAX_SCROLL_SPEED,
+            settings.BASE_SCROLL_SPEED + self.world.distance * settings.SPEED_GROWTH
+        )
+
+        # Déplacer les médailles restantes
         for medal in self.world.medals:
             medal.update(self.world.speed)
-        self.world.obstacles = [o for o in self.world.obstacles if o.y - o.height < settings.HEIGHT + 40]
         self.world.medals = [m for m in self.world.medals if m.y - m.height < settings.HEIGHT + 40]
+
+        # Ramasser les médailles pendant la préparation
+        self.handle_medal_pickups()
+
+        # Mise à jour des effets
+        self._update_effects(dt)
+
+        # Après le temps de préparation, lancer le décompte
+        if self.preparation_timer >= settings.PRE_SHOOTING_CLEAR_TIME:
+            self.pre_shooting_preparation = False
+            self.pre_shooting_countdown = True
+            self.countdown_step = 3
+            self.countdown_timer = 0
+
+    def _update_pre_shooting_countdown(self, dt, left, right, jump):
+        """Met à jour le décompte avant la phase de tir - joueur peut bouger"""
+        self.countdown_timer += dt
+
+        # Le joueur peut toujours bouger pendant le décompte
+        if left:
+            self.player.move_left()
+        if right:
+            self.player.move_right()
+        if jump:
+            self.player.jump()
+        self.player.update(dt)
+
+        # Continuer le scroll mais sans obstacles
+        self.world.distance += dt * 0.001
+        for medal in self.world.medals:
+            medal.update(self.world.speed)
+        self.world.medals = [m for m in self.world.medals if m.y - m.height < settings.HEIGHT + 40]
+
+        # Ramasser les médailles pendant le décompte
+        self.handle_medal_pickups()
+
+        # Mise à jour des effets
+        self._update_effects(dt)
 
         if self.countdown_timer >= settings.COUNTDOWN_STEP_DURATION:
             self.countdown_timer = 0
@@ -296,6 +438,7 @@ class SkiScene(Scene):
                 self.world.medal_score += points
                 color = (255, 215, 0) if medal.kind == "gold" else (200, 200, 200) if medal.kind == "silver" else (205, 127, 50)
                 self._add_floating_text(f"+{points}", mx + mw // 2, my, color)
+                SoundManager.play_coin()  # Jouer le son de pièce
             else:
                 remaining.append(medal)
         self.world.medals = remaining
@@ -306,7 +449,6 @@ class SkiScene(Scene):
         self.renderer.draw_medals(screen, self.world.medals)
         self.renderer.draw_player_blinking(screen, self.player)
         self.renderer.draw_ski_ui(screen, self.world.score, self.world.medal_score, self.player.lives, self.time_to_shooting)
-        self.renderer.draw_lane_marker(screen, self.player.lane)
 
         # Effets visuels
         self.renderer.draw_floating_text(screen, self.floating_texts)
@@ -382,6 +524,16 @@ class ShootingScene(Scene):
         self.flash_color = None
         self.flash_alpha = 0
 
+        # Animation de recul de l'arme
+        self.gun_recoil = 0  # Offset vertical pour le recul
+        self.gun_recoil_speed = 0
+
+        # Son de tir
+        self.shotgun_sound = None
+        if settings.SOUND_SHOTGUN.exists():
+            self.shotgun_sound = pygame.mixer.Sound(str(settings.SOUND_SHOTGUN))
+            self.shotgun_sound.set_volume(0.5)
+
     def handle_event(self, event):
         self.input.handle_event(event)
 
@@ -422,7 +574,20 @@ class ShootingScene(Scene):
             t['alpha'] -= dt * 0.15
         self.floating_texts = [t for t in self.floating_texts if t['alpha'] > 0]
 
+        # Animation de recul de l'arme
+        if self.gun_recoil > 0:
+            self.gun_recoil -= dt * 0.15  # Retour progressif
+            if self.gun_recoil < 0:
+                self.gun_recoil = 0
+
     def shoot(self):
+        # Déclencher le recul de l'arme
+        self.gun_recoil = 40  # Pixels de recul vers le haut
+
+        # Jouer le son de tir
+        if self.shotgun_sound:
+            self.shotgun_sound.play()
+
         target = self.targets[self.current_target_index]
         tx, ty, tw, th = target.rect
 
@@ -459,6 +624,10 @@ class ShootingScene(Scene):
         self.renderer.draw_targets(screen, self.targets)
         if not self.phase_complete:
             self.renderer.draw_sight(screen, self.sight)
+
+        # Dessiner l'arme avec effet de recul
+        self.renderer.draw_gun(screen, self.sight, self.gun_recoil)
+
         self.renderer.draw_shooting_ui(screen, self.shots_remaining, self.targets_hit, self.world.score, self.player.lives)
 
         self.renderer.draw_floating_text(screen, self.floating_texts)
