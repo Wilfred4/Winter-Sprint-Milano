@@ -17,7 +17,7 @@ except ImportError:
 
 # Configuration Supabase
 SUPABASE_URL = "https://vzztgsmetcmydxkjqtyv.supabase.co"
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_YEJ0KlF0pnqQtXx59YJORQ_r7Y0FKHo')
 
 supabase = None
 
