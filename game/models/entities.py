@@ -5,6 +5,7 @@ from game.core import settings
 
 
 def lane_x(lane_index):
+    """Retourne la position X du centre d'une voie."""
     lane_width = (settings.WIDTH - 2 * settings.LANE_PADDING) // settings.LANES
     return settings.LANE_PADDING + lane_width * lane_index + lane_width // 2
 
@@ -27,8 +28,8 @@ class Player:
     x: float = 0.0
     tilt: float = 0.0
     velocity_x: float = 0.0
-    lives: int = 0  # Commence avec 0 vies
-    invincible_timer: float = 0.0  # Temps d'invincibilité après collision
+    lives: int = settings.PLAYER_START_LIVES
+    invincible_timer: float = 0.0
 
     def __post_init__(self):
         self.x = float(lane_x(self.lane))
@@ -47,11 +48,11 @@ class Player:
     def update(self, dt):
         dt_sec = max(0.0, dt / 1000.0)
 
-        # Mise à jour timer invincibilité
+        # Timer invincibilité
         if self.invincible_timer > 0:
             self.invincible_timer -= dt
 
-        # vertical movement
+        # Saut / gravité
         if not self.on_ground:
             self.velocity_y += settings.GRAVITY
             self.y += self.velocity_y
@@ -60,7 +61,7 @@ class Player:
                 self.velocity_y = 0.0
                 self.on_ground = True
 
-        # smooth horizontal slide toward target lane
+        # Déplacement horizontal fluide vers la voie cible
         target_x = float(lane_x(self.target_lane))
         delta = target_x - self.x
         max_step = settings.HORIZONTAL_SPEED * dt_sec
@@ -68,14 +69,14 @@ class Player:
         self.x += step
         self.velocity_x = step / dt_sec if dt_sec > 0 else 0.0
 
-        # tilt based on horizontal velocity
+        # Inclinaison du personnage
         self.tilt = max(-12.0, min(12.0, -self.velocity_x * settings.TILT_FACTOR))
 
     def take_damage(self):
-        """Inflige des dégâts au joueur. Retourne True si le joueur est mort."""
+        """Retourne True si le joueur est mort."""
         if self.invincible_timer <= 0:
             self.lives -= 1
-            self.invincible_timer = 1500  # 1.5 secondes d'invincibilité
+            self.invincible_timer = settings.PLAYER_INVINCIBILITY_MS
             return self.lives < 0
         return False
 
@@ -97,9 +98,19 @@ class Player:
 class Obstacle:
     lane: int
     y: float
-    width: int = settings.OBSTACLE_SIZE[0]
-    height: int = settings.OBSTACLE_SIZE[1]
+    obstacle_type: str = "tree"  # "tree" ou "icicle"
+    width: int = None
+    height: int = None
     passed: bool = False
+
+    def __post_init__(self):
+        # Taille selon le type d'obstacle
+        if self.obstacle_type == "icicle":
+            self.width = self.width or settings.ICICLE_SIZE[0]
+            self.height = self.height or settings.ICICLE_SIZE[1]
+        else:
+            self.width = self.width or settings.OBSTACLE_SIZE[0]
+            self.height = self.height or settings.OBSTACLE_SIZE[1]
 
     def update(self, speed):
         self.y += speed
@@ -113,7 +124,7 @@ class Obstacle:
 
 @dataclass
 class Medal:
-    kind: str
+    kind: str  # bronze, silver, gold
     lane: int
     y: float
     width: int = settings.MEDAL_SIZE[0]
@@ -131,7 +142,7 @@ class Medal:
 
 @dataclass
 class Target:
-    """Cible pour la phase de tir"""
+    """Cible pour la phase de tir."""
     x: float
     y: float = settings.TARGET_Y
     width: int = settings.TARGET_SIZE[0]
@@ -149,7 +160,7 @@ class Target:
 
 @dataclass
 class Sight:
-    """Viseur pour la phase de tir"""
+    """Viseur qui oscille pour la phase de tir."""
     x: float = settings.SIGHT_MIN_X
     y: float = settings.SIGHT_Y
     width: int = settings.SIGHT_SIZE[0]
@@ -157,7 +168,6 @@ class Sight:
     direction: int = 1  # 1 = droite, -1 = gauche
 
     def update(self):
-        """Met à jour la position du viseur (aller-retour)"""
         self.x += settings.SIGHT_SPEED * self.direction
 
         # Rebondir aux bords
@@ -172,13 +182,11 @@ class Sight:
     def center_x(self):
         return self.x + self.width // 2
 
-    def is_on_target(self, target: Target) -> bool:
-        """Vérifie si le viseur est aligné avec une cible"""
+    def is_on_target(self, target):
         return abs(self.center_x - target.center_x) <= settings.TARGET_TOLERANCE
 
 
-# === HOCKEY ===
-
+# Hockey
 
 @dataclass
 class HockeyPlayer:
@@ -189,7 +197,12 @@ class HockeyPlayer:
 
     @property
     def rect(self):
-        return (int(self.x - self.width / 2), int(self.y - self.height / 2), self.width, self.height)
+        return (
+            int(self.x - self.width / 2),
+            int(self.y - self.height / 2),
+            self.width,
+            self.height
+        )
 
     @property
     def center(self):
@@ -204,24 +217,24 @@ class Puck:
     vy: float = 0.0
     radius: int = settings.HOCKEY_PUCK_RADIUS
 
-    def update(self, dt_sec: float):
+    def update(self, dt_sec):
         self.x += self.vx * dt_sec
         self.y += self.vy * dt_sec
 
-        # friction
+        # Friction
         decay = max(0.0, 1.0 - settings.HOCKEY_PUCK_FRICTION * dt_sec)
         self.vx *= decay
         self.vy *= decay
 
-        # cap speed
+        # Limiter la vitesse max
         speed = (self.vx ** 2 + self.vy ** 2) ** 0.5
         if speed > settings.HOCKEY_PUCK_MAX_SPEED:
             scale = settings.HOCKEY_PUCK_MAX_SPEED / speed
             self.vx *= scale
             self.vy *= scale
 
-        # stop micro jitter
-        if abs(self.vx) < 6:
+        # Stop les micro-mouvements
+        if abs(self.vx) < settings.HOCKEY_PUCK_MIN_VELOCITY:
             self.vx = 0
-        if abs(self.vy) < 6:
+        if abs(self.vy) < settings.HOCKEY_PUCK_MIN_VELOCITY:
             self.vy = 0

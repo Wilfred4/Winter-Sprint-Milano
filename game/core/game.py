@@ -1,7 +1,7 @@
 ﻿import pygame
 
 from game.core import settings
-from game.scenes.runner import MenuScene
+from game.scenes.menu import MenuScene
 
 
 class Game:

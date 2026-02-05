@@ -20,9 +20,9 @@ class Renderer:
         self.player_image = self._load_player_image()
         self.hockey_player_image = self._load_hockey_player_image()
         self.obstacle_image = self._load_image(settings.OBSTACLE_IMG, settings.OBSTACLE_SIZE)
+        self.icicle_image = self._load_image(settings.ICICLE_IMG, settings.ICICLE_SIZE)
 
-        # === SYSTÈME DE MAPS ===
-        # Charger tous les fonds disponibles
+        # Système de maps
         self.background_images = self._load_all_backgrounds()
         self.background_image = self.background_images[Renderer._current_bg_index] if self.background_images else None
 
@@ -161,10 +161,11 @@ class Renderer:
         """Charge l'image de l'arme pour la phase de tir"""
         if settings.GUN_IMG.exists():
             image = pygame.image.load(settings.GUN_IMG).convert_alpha()
-            # Taille Arme
-            scale = 1000 / image.get_width()
-            new_h = int(image.get_height() * scale)
-            return pygame.transform.smoothscale(image, (500, new_h))
+            # Garde le ratio en fonction de la largeur voulue
+            ratio = image.get_height() / image.get_width()
+            new_w = settings.GUN_WIDTH
+            new_h = int(new_w * ratio)
+            return pygame.transform.smoothscale(image, (new_w, new_h))
         return None
 
     def draw_background(self, screen, scroll_speed=0.0):
@@ -199,7 +200,10 @@ class Renderer:
     def draw_obstacles(self, screen, obstacles):
         for obstacle in obstacles:
             x, y, w, h = obstacle.rect
-            if self.obstacle_image:
+            # Choisir l'image selon le type d'obstacle
+            if obstacle.obstacle_type == "icicle" and self.icicle_image:
+                screen.blit(self.icicle_image, (x, y))
+            elif self.obstacle_image:
                 screen.blit(self.obstacle_image, (x, y))
             else:
                 pygame.draw.rect(screen, settings.OBSTACLE_COLOR, (x, y, w, h), border_radius=8)
@@ -332,10 +336,9 @@ class Renderer:
         x = lane_x(lane_index)
         pygame.draw.circle(screen, (90, 110, 140), (x, settings.HEIGHT - 20), 6)
 
-    # === PHASE TIR ===
+    # Phase Tir
 
     def draw_shooting_background(self, screen):
-        """Fond pour la phase de tir"""
         if self.shooting_bg_image:
             screen.blit(self.shooting_bg_image, (0, 0))
         else:
@@ -395,26 +398,95 @@ class Renderer:
     def draw_gun(self, screen, sight, recoil_offset=0):
         """Dessine l'arme qui suit le viseur avec effet de recul"""
         if self.gun_image:
-            # Position centrée horizontalement sur le viseur
             gun_x = int(sight.x + sight.width // 2 - self.gun_image.get_width() // 2)
-            # Position en bas de l'écran, remontée de 100px, avec offset de recul
-            gun_y = settings.HEIGHT - self.gun_image.get_height() - 50 - int(recoil_offset)
+            gun_y = settings.HEIGHT - self.gun_image.get_height() - settings.GUN_Y_OFFSET - int(recoil_offset)
             screen.blit(self.gun_image, (gun_x, gun_y))
 
-    def draw_countdown(self, screen, step):
-        """Dessine l'image du compte à rebours (3, 2, 1, start)"""
+    def draw_countdown(self, screen, step, progress=0.0):
+        """Dessine le compte à rebours avec effets modernes
+        progress: 0.0 à 1.0 pour l'animation dans l'étape actuelle
+        """
+        cx, cy = settings.WIDTH // 2, settings.HEIGHT // 2
+
+        # Essayer d'abord l'image
         image = self.countdown_images.get(step)
         if image:
-            x = settings.WIDTH // 2 - image.get_width() // 2
-            y = settings.HEIGHT // 2 - image.get_height() // 2
-            screen.blit(image, (x, y))
+            # Animation de scale
+            scale = 0.8 + 0.4 * (1.0 - progress) if progress < 0.3 else 1.0
+            w = int(image.get_width() * scale)
+            h = int(image.get_height() * scale)
+            if w > 0 and h > 0:
+                scaled = pygame.transform.smoothscale(image, (w, h))
+                # Fondu si fin de l'étape
+                if progress > 0.8:
+                    alpha = int(255 * (1.0 - (progress - 0.8) * 5))
+                    scaled.set_alpha(max(0, alpha))
+                screen.blit(scaled, (cx - w // 2, cy - h // 2))
+            return
+
+        # Fallback moderne si pas d'image
+        text = "GO!" if step == "start" else str(step)
+
+        # Cercle de fond animé
+        ring_radius = 180
+        ring_progress = progress
+        ring_surf = pygame.Surface((ring_radius * 2 + 40, ring_radius * 2 + 40), pygame.SRCALPHA)
+
+        # Halo extérieur
+        for i in range(3):
+            alpha = 60 - i * 20
+            pygame.draw.circle(ring_surf, (100, 150, 255, alpha),
+                             (ring_radius + 20, ring_radius + 20), ring_radius + 10 - i * 5, 4)
+
+        # Arc de progression
+        if ring_progress > 0:
+            rect = pygame.Rect(20, 20, ring_radius * 2, ring_radius * 2)
+            start = math.pi / 2
+            end = start + 2 * math.pi * ring_progress
+            pygame.draw.arc(ring_surf, (80, 200, 255, 200), rect, start, end, 8)
+
+        screen.blit(ring_surf, (cx - ring_radius - 20, cy - ring_radius - 20))
+
+        # Cercle intérieur
+        inner_radius = 120
+        pygame.draw.circle(screen, (20, 30, 50), (cx, cy), inner_radius)
+        pygame.draw.circle(screen, (60, 80, 120), (cx, cy), inner_radius, 3)
+
+        # Effet de scale pour le texte
+        scale_factor = 1.0 + 0.3 * max(0, 1.0 - progress * 3) if progress < 0.3 else 1.0
+        font_size = int(140 * scale_factor)
+
+        # Couleur selon l'étape
+        if step == "start":
+            color = (80, 255, 120)
+            glow = (80, 255, 120, 100)
+        elif step == 1:
+            color = (255, 100, 100)
+            glow = (255, 100, 100, 100)
+        elif step == 2:
+            color = (255, 200, 80)
+            glow = (255, 200, 80, 100)
         else:
-            # Fallback : texte
-            text = "START" if step == "start" else str(step)
-            font = pygame.font.SysFont("consolas", 120, bold=True)
-            rendered = font.render(text, True, (255, 80, 80))
-            screen.blit(rendered, (settings.WIDTH // 2 - rendered.get_width() // 2,
-                                   settings.HEIGHT // 2 - rendered.get_height() // 2))
+            color = (100, 200, 255)
+            glow = (100, 200, 255, 100)
+
+        # Halo du texte
+        glow_surf = pygame.Surface((300, 200), pygame.SRCALPHA)
+        glow_font = pygame.font.SysFont("consolas", font_size, bold=True)
+        glow_text = glow_font.render(text, True, glow[:3])
+        glow_text.set_alpha(glow[3])
+        for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+            screen.blit(glow_text, (cx - glow_text.get_width() // 2 + ox,
+                                    cy - glow_text.get_height() // 2 + oy))
+
+        # Texte principal
+        font = pygame.font.SysFont("consolas", font_size, bold=True)
+        # Ombre
+        shadow = font.render(text, True, (0, 0, 0))
+        screen.blit(shadow, (cx - shadow.get_width() // 2 + 4, cy - shadow.get_height() // 2 + 4))
+        # Texte
+        rendered = font.render(text, True, color)
+        screen.blit(rendered, (cx - rendered.get_width() // 2, cy - rendered.get_height() // 2))
 
     def draw_shooting_ui(self, screen, shots_remaining, targets_hit, score, lives):
         """UI pour la phase de tir"""
@@ -477,53 +549,104 @@ class Renderer:
         pygame.draw.polygon(screen, (100, 50, 50), points, 2)
 
     def draw_ski_ui(self, screen, score, medal_score, lives, time_to_shooting):
-        """UI pour la phase ski avec vies et compte à rebours circulaire"""
-        shadow = settings.UI_SHADOW
-        score_text = self.font_small.render(f"Score: {score}", True, settings.UI_COLOR)
-        medal_text = self.font_small.render(f"Médailles: {medal_score}", True, settings.UI_COLOR)
+        """UI moderne pour la phase ski"""
+        # Panel gauche avec fond semi-transparent
+        panel_width = 280
+        panel_height = 120
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
 
-        # Positions pour 1920x1080
-        screen.blit(self.font_small.render(f"Score: {score}", True, shadow), (32, 22))
-        screen.blit(self.font_small.render(f"Médailles: {medal_score}", True, shadow), (32, 62))
-        screen.blit(score_text, (30, 20))
-        screen.blit(medal_text, (30, 60))
+        # Fond dégradé du panel
+        for y in range(panel_height):
+            alpha = int(180 - y * 0.5)
+            pygame.draw.line(panel, (15, 20, 35, alpha), (0, y), (panel_width, y))
 
-        # Compte à rebours circulaire (centre)
+        # Bordure brillante
+        pygame.draw.rect(panel, (100, 140, 200, 120), (0, 0, panel_width, panel_height), 2, border_radius=12)
+        pygame.draw.line(panel, (150, 180, 220, 80), (10, 2), (panel_width - 10, 2), 1)
+
+        screen.blit(panel, (20, 15))
+
+        # Score avec icône
+        score_icon = "◆"
+        score_label = self.font_tiny.render(score_icon, True, (100, 180, 255))
+        screen.blit(score_label, (35, 30))
+        score_value = self.font_medium.render(f"{score:,}".replace(",", " "), True, (255, 255, 255))
+        screen.blit(score_value, (60, 22))
+
+        # Médailles avec icône
+        medal_icon = "★"
+        medal_label = self.font_tiny.render(medal_icon, True, (255, 215, 0))
+        screen.blit(medal_label, (35, 75))
+        medal_value = self.font_medium.render(str(medal_score), True, (255, 220, 100))
+        screen.blit(medal_value, (60, 67))
+
+        # Compteur circulaire moderne (centre)
         self.draw_circular_timer(screen, time_to_shooting, settings.SHOOTING_INTERVAL)
 
         # Vies (droite)
         self.draw_lives(screen, lives)
 
     def draw_circular_timer(self, screen, time_remaining, total_time):
-        """Dessine un compte à rebours circulaire"""
-        cx, cy = settings.WIDTH // 2, 60
-        radius = 50  # Plus grand pour 1920x1080
-        thickness = 8
+        """Compteur circulaire moderne avec effets visuels"""
+        cx, cy = settings.WIDTH // 2, 65
+        radius = 55
+        thickness = 10
 
-        # Fond du cercle (gris)
-        pygame.draw.circle(screen, (80, 80, 90), (cx, cy), radius, thickness)
+        # Fond avec halo
+        glow_surf = pygame.Surface((radius * 3, radius * 3), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (40, 60, 100, 60), (radius * 1.5, radius * 1.5), radius + 15)
+        screen.blit(glow_surf, (cx - radius * 1.5, cy - radius * 1.5))
+
+        # Cercle de fond (track)
+        pygame.draw.circle(screen, (30, 40, 60), (cx, cy), radius, thickness)
+        pygame.draw.circle(screen, (50, 60, 80), (cx, cy), radius - thickness // 2, 1)
 
         # Arc de progression
         progress = max(0, time_remaining / total_time)
         if progress > 0:
-            # Couleur selon le temps restant
+            # Couleur avec dégradé selon le temps
             if progress > 0.5:
-                color = (80, 180, 80)  # Vert
+                color = (80, 220, 120)
+                glow_color = (80, 220, 120, 100)
             elif progress > 0.25:
-                color = (220, 180, 60)  # Orange
+                color = (255, 200, 60)
+                glow_color = (255, 200, 60, 100)
             else:
-                color = (220, 80, 80)  # Rouge
+                color = (255, 80, 80)
+                glow_color = (255, 80, 80, 100)
+                # Effet pulsation quand temps critique
+                pulse = 1.0 + 0.1 * math.sin(pygame.time.get_ticks() / 100)
+                thickness = int(thickness * pulse)
 
-            # Dessiner l'arc
-            start_angle = math.pi / 2  # Commence en haut
+            # Arc principal
+            start_angle = math.pi / 2
             end_angle = start_angle + (2 * math.pi * progress)
             rect = pygame.Rect(cx - radius, cy - radius, radius * 2, radius * 2)
             pygame.draw.arc(screen, color, rect, start_angle, end_angle, thickness)
 
-        # Texte au centre
+            # Point lumineux au bout de l'arc
+            angle = start_angle + (2 * math.pi * progress)
+            px = cx + int(radius * math.cos(angle))
+            py = cy - int(radius * math.sin(angle))
+            pygame.draw.circle(screen, (255, 255, 255), (px, py), 6)
+            pygame.draw.circle(screen, color, (px, py), 4)
+
+        # Cercle intérieur décoratif
+        pygame.draw.circle(screen, (20, 30, 50), (cx, cy), radius - thickness - 5)
+        pygame.draw.circle(screen, (40, 55, 80), (cx, cy), radius - thickness - 5, 1)
+
+        # Texte au centre avec style
         seconds = max(0, int(time_remaining / 1000))
-        timer_text = self.font_small.render(f"{seconds}", True, settings.UI_COLOR)
+        # Ombre du texte
+        shadow_text = self.font_medium.render(f"{seconds}", True, (0, 0, 0))
+        screen.blit(shadow_text, (cx - shadow_text.get_width() // 2 + 2, cy - shadow_text.get_height() // 2 + 2))
+        # Texte principal
+        timer_text = self.font_medium.render(f"{seconds}", True, (255, 255, 255))
         screen.blit(timer_text, (cx - timer_text.get_width() // 2, cy - timer_text.get_height() // 2))
+
+        # Label "TIR" sous le compteur
+        label = self.font_tiny.render("TIR", True, (150, 160, 180))
+        screen.blit(label, (cx - label.get_width() // 2, cy + radius + 8))
 
     def draw_player_blinking(self, screen, player):
         """Dessine le joueur avec effet clignotant si invincible"""
@@ -532,7 +655,7 @@ class Renderer:
                 return  # Ne pas dessiner (effet clignotant)
         self.draw_player(screen, player)
 
-    # === HOCKEY ===
+    # Hockey
 
     def draw_hockey_background(self, screen, rink_rect):
         screen.fill(settings.HOCKEY_RINK_COLOR)
@@ -620,10 +743,9 @@ class Renderer:
         screen.blit(replay, (settings.WIDTH // 2 - replay.get_width() // 2, settings.HEIGHT // 2 + 60))
         screen.blit(menu, (settings.WIDTH // 2 - menu.get_width() // 2, settings.HEIGHT // 2 + 110))
 
-    # === EFFETS VISUELS ===
+    # Effets visuels
 
     def draw_flash(self, screen, color, alpha):
-        """Dessine un flash coloré sur l'écran"""
         if alpha <= 0:
             return
         overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
@@ -643,10 +765,9 @@ class Renderer:
             text_surface.set_alpha(int(t['alpha']))
             screen.blit(text_surface, (int(t['x']) - text_surface.get_width() // 2, int(t['y'])))
 
-    # === GAME OVER AMÉLIORÉ ===
+    # Game Over
 
     def draw_game_over(self, screen, score, medal_score, distance, best_score, animation_progress):
-        """Écran Game Over amélioré avec animations"""
         # Fond semi-transparent
         overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
@@ -692,17 +813,24 @@ class Renderer:
             best_text.set_alpha(best_alpha)
             screen.blit(best_text, (settings.WIDTH // 2 - best_text.get_width() // 2, settings.HEIGHT // 2 + 130))
 
-        # Instruction pour rejouer
+        # Instructions
         if animation_progress >= 1.0:
-            # Effet de pulsation
             pulse = 0.8 + 0.2 * math.sin(pygame.time.get_ticks() / 200)
-            instruction = self.font_small.render("Appuie sur ENTER pour rejouer", True, (200, 200, 200))
-            instruction.set_alpha(int(255 * pulse))
-            screen.blit(instruction, (settings.WIDTH // 2 - instruction.get_width() // 2, settings.HEIGHT - 80))
 
+            # Rejouer
+            replay = self.font_small.render("ESPACE pour rejouer", True, (200, 200, 200))
+            replay.set_alpha(int(255 * pulse))
+            screen.blit(replay, (settings.WIDTH // 2 - replay.get_width() // 2, settings.HEIGHT - 120))
+
+            # Sauvegarder
+            save = self.font_small.render("ENTER pour sauvegarder le score", True, (100, 200, 100))
+            save.set_alpha(int(255 * pulse))
+            screen.blit(save, (settings.WIDTH // 2 - save.get_width() // 2, settings.HEIGHT - 75))
+
+            # Menu
             menu = self.font_small.render("M pour menu", True, (200, 200, 200))
             menu.set_alpha(int(255 * pulse))
-            screen.blit(menu, (settings.WIDTH // 2 - menu.get_width() // 2, settings.HEIGHT - 40))
+            screen.blit(menu, (settings.WIDTH // 2 - menu.get_width() // 2, settings.HEIGHT - 35))
 
     def _draw_stat_box(self, screen, cx, cy, label, value, color, alpha):
         """Dessine une boîte de statistique"""
