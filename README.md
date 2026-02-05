@@ -1,4 +1,4 @@
-﻿# Pygame Subway-Runner 2D (MVC)
+﻿# Winter Sprint Milano
 
 ## Prerequisites
 - Python 3.10+
