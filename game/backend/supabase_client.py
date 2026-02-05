@@ -1,9 +1,16 @@
 import os
 from supabase import create_client, Client
 
+# Charger .env si disponible
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv pas installé
+
 # Remplace par tes vraies informations
 url = "https://vzztgsmetcmydxkjqtyv.supabase.co"
-key = "sb_secret_YEJ0KlF0pnqQtXx59YJORQ_r7Y0FKHo"
+key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_YEJ0KlF0pnqQtXx59YJORQ_r7Y0FKHo')  # Fallback pour dev
 
 supabase: Client = create_client(url, key)
 
