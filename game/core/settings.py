@@ -27,7 +27,7 @@ PLAYER_START_LIVES = 0
 
 # Vitesse et spawn
 BASE_SCROLL_SPEED = 7          # Vitesse de départ (augmenter pour aller plus vite)
-MAX_SCROLL_SPEED = 18          # Vitesse max
+MAX_SCROLL_SPEED = 50         # Vitesse max
 SPEED_GROWTH = 0.18            # Accélération progressive
 
 SPAWN_INTERVAL = 700           # Intervalle spawn arbres (ms)
@@ -56,7 +56,7 @@ ICICLE_IMG = ASSETS_DIR / "glacons.png"       # Obstacle glaçon
 ICICLE_SIZE = (170, 120)              # Taille des glaçons
 MENU_BG_IMG = ASSETS_DIR / "accueil.png"
 
-# Maps (detection auto des fondrun*.png/jpg)
+# Maps (detection auto des fondrun*.png ou jpg)
 def get_background_images():
     backgrounds = []
     for ext in ['*.png', '*.jpg', '*.jpeg']:
@@ -124,7 +124,7 @@ MEDAL_WEIGHTS = {
 }
 
 # Phase Tir
-SHOOTING_INTERVAL = 12000      # Temps avant la phase de tir
+SHOOTING_INTERVAL = 40000      # Temps avant la phase de tir en ms
 NUM_TARGETS = 5
 TARGET_HIT_BONUS = 50
 MIN_TARGETS_TO_HIT = 3

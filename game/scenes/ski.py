@@ -334,5 +334,4 @@ class SkiScene(Scene):
         screen.blit(hint, (settings.WIDTH // 2 - hint.get_width() // 2, settings.HEIGHT // 2 + 180))
 
 
-# Alias
 PlayScene = SkiScene

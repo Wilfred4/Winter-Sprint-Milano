@@ -5,7 +5,7 @@ import pygame
 
 from game.core import settings
 from game.scenes.base import Scene
-from game.hockey.entities import HockeyPlayer, Puck
+from game.models.entities import HockeyPlayer, Puck
 from game.hockey.renderer import HockeyRenderer
 from game.hockey.sound import HockeySound
 

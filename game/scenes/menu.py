@@ -46,7 +46,7 @@ class MenuScene(Scene):
         elif self.hockey_button.collidepoint(pos):
             self.game.change_scene(HockeyScene(self.game))
         elif self.settings_button.collidepoint(pos):
-            pass  # TODO
+            pass
         elif self.quit_button.collidepoint(pos):
             self.game.running = False
 

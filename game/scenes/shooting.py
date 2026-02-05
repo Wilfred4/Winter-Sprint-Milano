@@ -96,7 +96,7 @@ class ShootingScene(Scene):
                     self.game, self.world.score, self.world.medal_score, self.world.distance
                 ))
                 return
-        # Bonus si parfait
+        # Bonus si tous touché
         elif self.targets_hit == settings.NUM_TARGETS and not self.time_expired:
             self.player.lives += 1
 

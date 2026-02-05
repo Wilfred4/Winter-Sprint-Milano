@@ -98,9 +98,11 @@ class World:
 
     def _is_medal_lane_clear(self, lane, y):
         min_gap = settings.MEDAL_MIN_GAP
+        # Permet ne pas faire apparaitre au dessus d'un obstacle
         for obstacle in self.obstacles:
             if abs(obstacle.y - y) < min_gap and abs(obstacle.lane - lane) <= 1:
                 return False
+        # Permet de ne pas faire apparaitre plusieurs médailles côte à côte
         for medal in self.medals:
             if abs(medal.y - y) < min_gap and abs(medal.lane - lane) <= 1:
                 return False
