@@ -580,9 +580,6 @@ class Renderer:
         medal_value = self.font_medium.render(str(medal_score), True, (255, 220, 100))
         screen.blit(medal_value, (60, 67))
 
-        # Compteur circulaire moderne (centre)
-        self.draw_circular_timer(screen, time_to_shooting, settings.SHOOTING_INTERVAL)
-
         # Vies (droite)
         self.draw_lives(screen, lives)
 
