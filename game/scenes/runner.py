@@ -7,4 +7,3 @@ from game.scenes.countdown import CountdownScene
 from game.scenes.ski import SkiScene, PlayScene
 from game.scenes.shooting import ShootingScene
 from game.scenes.gameover import GameOverScene
-from game.scenes.leaderboard import LeaderboardScene, PseudoInputScene

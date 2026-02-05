@@ -820,12 +820,7 @@ class Renderer:
             # Rejouer
             replay = self.font_small.render("ESPACE pour rejouer", True, (200, 200, 200))
             replay.set_alpha(int(255 * pulse))
-            screen.blit(replay, (settings.WIDTH // 2 - replay.get_width() // 2, settings.HEIGHT - 120))
-
-            # Sauvegarder
-            save = self.font_small.render("ENTER pour sauvegarder le score", True, (100, 200, 100))
-            save.set_alpha(int(255 * pulse))
-            screen.blit(save, (settings.WIDTH // 2 - save.get_width() // 2, settings.HEIGHT - 75))
+            screen.blit(replay, (settings.WIDTH // 2 - replay.get_width() // 2, settings.HEIGHT - 80))
 
             # Menu
             menu = self.font_small.render("M pour menu", True, (200, 200, 200))

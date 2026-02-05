@@ -21,7 +21,6 @@ class MenuScene(Scene):
         btn_height = settings.MENU_BUTTON_HEIGHT
         self.biathlon_button = pygame.Rect(0, 0, btn_width, btn_height)
         self.hockey_button = pygame.Rect(0, 0, btn_width, btn_height)
-        self.leaderboard_button = pygame.Rect(0, 0, btn_width, btn_height)
         self.settings_button = pygame.Rect(0, 0, btn_width, btn_height)
         self.quit_button = pygame.Rect(0, 0, btn_width, btn_height)
 
@@ -31,8 +30,7 @@ class MenuScene(Scene):
         bottom_margin = settings.MENU_BUTTON_BOTTOM_MARGIN
         self.quit_button.center = (center_x, settings.HEIGHT - bottom_margin - btn_height // 2)
         self.settings_button.center = (center_x, self.quit_button.centery - btn_height - spacing)
-        self.leaderboard_button.center = (center_x, self.settings_button.centery - btn_height - spacing)
-        self.hockey_button.center = (center_x, self.leaderboard_button.centery - btn_height - spacing)
+        self.hockey_button.center = (center_x, self.settings_button.centery - btn_height - spacing)
         self.biathlon_button.center = (center_x, self.hockey_button.centery - btn_height - spacing)
 
     def handle_event(self, event):
@@ -42,14 +40,11 @@ class MenuScene(Scene):
 
     def _handle_click(self, pos):
         from game.hockey.scene import HockeyScene
-        from game.scenes.leaderboard import LeaderboardScene
 
         if self.biathlon_button.collidepoint(pos):
             self._start_biathlon()
         elif self.hockey_button.collidepoint(pos):
             self.game.change_scene(HockeyScene(self.game))
-        elif self.leaderboard_button.collidepoint(pos):
-            self.game.change_scene(LeaderboardScene(self.game))
         elif self.settings_button.collidepoint(pos):
             pass  # TODO
         elif self.quit_button.collidepoint(pos):
@@ -70,11 +65,9 @@ class MenuScene(Scene):
 
     def render(self, screen):
         mouse_pos = pygame.mouse.get_pos()
-        # Liste des boutons dans l'ordre d'affichage (du haut vers le bas)
         button_list = [
             (self.biathlon_button, "BIATHLON"),
             (self.hockey_button, "HOCKEY"),
-            (self.leaderboard_button, "LEADERBOARD"),
             (self.settings_button, "SETTINGS"),
             (self.quit_button, "QUITTER"),
         ]

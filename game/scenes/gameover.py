@@ -51,12 +51,6 @@ class GameOverScene(Scene):
                 from game.scenes.menu import MenuScene
                 MusicManager.play_menu_music()
                 self.game.change_scene(MenuScene(self.game))
-            elif event.key == pygame.K_RETURN:
-                # Sauvegarder le score en ligne
-                from game.scenes.leaderboard import PseudoInputScene
-                self.game.change_scene(PseudoInputScene(
-                    self.game, self.score, self.medal_score, self.distance
-                ))
 
     def update(self, dt):
         self.animation_time += dt / 1000
