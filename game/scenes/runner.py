@@ -100,7 +100,7 @@ class MenuScene(Scene):
             if self.hockey_button.collidepoint(event.pos):
                 self.game.change_scene(HockeyScene(self.game))
             if self.leaderboard_button.collidepoint(event.pos):
-                pass  # TODO: Leaderboard
+                self.game.change_scene(LeaderboardScene(self.game))
             if self.settings_button.collidepoint(event.pos):
                 pass  # TODO: Settings
             if self.quit_button.collidepoint(event.pos):
@@ -739,13 +739,170 @@ class GameOverScene(Scene):
 
         left, right, jump, start = self.input.consume()
         if self.can_restart and (start or jump):
-            Renderer.reset_background_index()
-            self.game.change_scene(CountdownScene(self.game, with_start=True))
+            self.game.change_scene(PseudoInputScene(self.game, self.score, self.medal_score, self.distance))
 
     def render(self, screen):
         self.renderer.draw_background(screen)
         progress = min(1.0, self.animation_time / 1.5)
         self.renderer.draw_game_over(screen, self.score, self.medal_score, self.distance, self.best_score, progress)
+
+
+class LeaderboardScene(Scene):
+    def __init__(self, game):
+        super().__init__(game)
+        self.renderer = Renderer()
+        self.input = InputController()
+        self.scores = []
+        self.loading = True
+        self.error = False
+        self.error_message = None
+        # Charger les scores en arrière-plan
+        self._load_scores()
+
+    def _load_scores(self):
+        try:
+            from game.backend.supabase_client import recuperer_high_scores
+            self.scores = recuperer_high_scores(10)
+            self.loading = False
+        except Exception as e:
+            print(f"Erreur chargement leaderboard: {e}")
+            self.loading = False
+            self.error = True
+            self.error_message = str(e)
+
+    def handle_event(self, event):
+        self.input.handle_event(event)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_m:
+                self.game.change_scene(MenuScene(self.game))
+
+    def update(self, dt):
+        pass
+
+    def render(self, screen):
+        self.renderer.draw_background(screen)
+        # Overlay
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        screen.blit(overlay, (0, 0))
+
+        title_font = pygame.font.Font(None, 48)
+        title_text = title_font.render("LEADERBOARD", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(settings.WIDTH // 2, 100))
+        screen.blit(title_text, title_rect)
+
+        if self.loading:
+            loading_font = pygame.font.Font(None, 36)
+            loading_text = loading_font.render("Loading...", True, (255, 255, 255))
+            loading_rect = loading_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2))
+            screen.blit(loading_text, loading_rect)
+        elif self.error:
+            error_font = pygame.font.Font(None, 24)
+            error_text = error_font.render(f"Error loading scores: {self.error_message}", True, (255, 0, 0))
+            error_rect = error_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2))
+            screen.blit(error_text, error_rect)
+        else:
+            y_offset = 150
+            font = pygame.font.Font(None, 32)
+            for i, score_data in enumerate(self.scores):
+                username = score_data.get('name', 'Unknown')
+                score = score_data.get('score', 0)
+                text = font.render(f"{i+1}. {username}: {score}", True, (255, 255, 255))
+                rect = text.get_rect(center=(settings.WIDTH // 2, y_offset))
+                screen.blit(text, rect)
+                y_offset += 40
+
+        # Instructions
+        instr_font = pygame.font.Font(None, 24)
+        instr_text = instr_font.render("Press ESC or M to return to menu", True, (200, 200, 200))
+        instr_rect = instr_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT - 50))
+        screen.blit(instr_text, instr_rect)
+
+
+class PseudoInputScene(Scene):
+    def __init__(self, game, score, medal_score, distance):
+        super().__init__(game)
+        self.score = score
+        self.medal_score = medal_score
+        self.distance = distance
+        self.renderer = Renderer()
+        self.text_input = ""
+        self.cursor_visible = True
+        self.cursor_timer = 0
+        self.max_length = 20
+        self.error_message = None
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if self.text_input.strip():
+                    pseudo = self.text_input.strip()
+                else:
+                    pseudo = "Anonymous"
+                # Sauvegarder le score
+                from game.backend.supabase_client import sauvegarder_score
+                try:
+                    sauvegarder_score(pseudo, self.score)
+                    # Succès, retour au menu
+                    MusicManager.play_menu_music()
+                    self.game.change_scene(MenuScene(self.game))
+                except Exception as e:
+                    self.error_message = str(e)
+                    print(f"Erreur sauvegarde score: {e}")
+            elif event.key == pygame.K_BACKSPACE:
+                self.text_input = self.text_input[:-1]
+                self.error_message = None  # Clear error on edit
+            elif event.key == pygame.K_ESCAPE:
+                MusicManager.play_menu_music()
+                self.game.change_scene(MenuScene(self.game))
+            else:
+                if len(self.text_input) < self.max_length and event.unicode.isprintable():
+                    self.text_input += event.unicode
+                    self.error_message = None  # Clear error on edit
+
+    def update(self, dt):
+        self.cursor_timer += dt
+        if self.cursor_timer >= 500:
+            self.cursor_visible = not self.cursor_visible
+            self.cursor_timer = 0
+
+    def render(self, screen):
+        self.renderer.draw_background(screen)
+        # Overlay semi-transparent
+        overlay = pygame.Surface((settings.WIDTH, settings.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        screen.blit(overlay, (0, 0))
+
+        # Titre
+        title_font = pygame.font.Font(None, 48)
+        title_text = title_font.render("Enter your name", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2 - 100))
+        screen.blit(title_text, title_rect)
+
+        # Score
+        score_font = pygame.font.Font(None, 36)
+        score_text = score_font.render(f"Score: {self.score}", True, (255, 255, 0))
+        score_rect = score_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2 - 50))
+        screen.blit(score_text, score_rect)
+
+        # Input box
+        input_font = pygame.font.Font(None, 36)
+        input_text = input_font.render(self.text_input + ("|" if self.cursor_visible else ""), True, (255, 255, 255))
+        input_rect = input_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2))
+        screen.blit(input_text, input_rect)
+
+        # Instructions
+        instr_font = pygame.font.Font(None, 24)
+        instr_text = instr_font.render("Press ENTER to save, ESC to cancel", True, (200, 200, 200))
+        instr_rect = instr_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2 + 50))
+        screen.blit(instr_text, instr_rect)
+
+        # Afficher l'erreur si présente
+        if self.error_message:
+            error_font = pygame.font.Font(None, 20)
+            error_text = error_font.render(f"Error: {self.error_message}", True, (255, 0, 0))
+            error_rect = error_text.get_rect(center=(settings.WIDTH // 2, settings.HEIGHT // 2 + 80))
+            screen.blit(error_text, error_rect)
 
 
 # Alias pour compatibilité
