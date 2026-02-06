@@ -6,7 +6,7 @@ HEIGHT = 1080
 FPS = 60
 FULLSCREEN = True
 
-# Phase Ski
+# Phase de   Ski
 LANES = 3
 LANE_PADDING = 360
 PLAYER_Y = HEIGHT - 150
@@ -124,7 +124,7 @@ MEDAL_WEIGHTS = {
 }
 
 # Phase Tir
-SHOOTING_INTERVAL = 40000      # Temps avant la phase de tir en ms
+SHOOTING_INTERVAL = 10000      # Temps avant la phase de tir en ms
 NUM_TARGETS = 5
 TARGET_HIT_BONUS = 50
 MIN_TARGETS_TO_HIT = 3
@@ -135,7 +135,7 @@ TARGET_Y = 280
 TARGET_SIZE = (150, 135)
 
 # Arme
-GUN_WIDTH = 900                # Largeur de l'arme (augmenter pour élargir)
+GUN_WIDTH = 900                # Largeur de l'arme
 GUN_Y_OFFSET = 30              # Distance du bas de l'écran
 
 # Viseur
